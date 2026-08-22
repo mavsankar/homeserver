@@ -1,0 +1,209 @@
+/* ===== Sankar's Homelab — Clean Dark Dashboard ===== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --accent: #60a5fa;
+  --accent-dim: rgba(96, 165, 250, 0.15);
+  --surface: rgba(15, 23, 42, 0.85);
+  --surface-hover: rgba(30, 41, 59, 0.9);
+  --border: rgba(148, 163, 184, 0.08);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --radius: 14px;
+  --green: #34d399;
+  --red: #f87171;
+}
+
+* {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+}
+
+/* ---- Page background overlay ---- */
+#page_container::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(96, 165, 250, 0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- Service Cards ---- */
+.service {
+  background: var(--surface) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius) !important;
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.service:hover {
+  background: var(--surface-hover) !important;
+  border-color: rgba(96, 165, 250, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(96, 165, 250, 0.1);
+}
+
+.service:hover img,
+.service:hover svg {
+  filter: brightness(1.2);
+  transform: scale(1.05);
+}
+
+.service img,
+.service svg {
+  transition: all 0.25s ease;
+}
+
+/* Service title */
+.service a span:first-child,
+.service h2 {
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+/* Service description */
+.service p {
+  color: var(--text-secondary) !important;
+  font-size: 0.78rem !important;
+}
+
+/* ---- Section headers ---- */
+h2:not(.service h2) {
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--text-secondary) !important;
+  opacity: 0.7;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---- Header widget bar ---- */
+#widgets-wrap {
+  background: var(--surface) !important;
+  border: 1px solid var(--border);
+  border-radius: 16px !important;
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  padding: 14px 24px !important;
+  margin: 12px auto !important;
+  display: flex !important;
+  justify-content: space-evenly !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+/* ---- Greeting ---- */
+.information-widget-greeting span {
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+}
+
+/* ---- DateTime ---- */
+.information-widget-datetime span {
+  color: var(--text-secondary) !important;
+  font-size: 0.82rem !important;
+}
+
+/* ---- Status dots ---- */
+.bg-emerald-500, .bg-green-500 {
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
+}
+
+.bg-red-500, .bg-rose-500 {
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.6);
+}
+
+/* ---- Quick Launch ---- */
+input[type="text"],
+input[type="search"],
+#quicklaunch input {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  color: var(--text-primary) !important;
+  transition: all 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+#quicklaunch input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim) !important;
+  outline: none !important;
+}
+
+#quicklaunch {
+  backdrop-filter: blur(20px) !important;
+  background: rgba(15, 23, 42, 0.97) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* ---- Per-section accent (left border on cards) ---- */
+
+/* Apps — blue */
+.service:has(a[href*="homeworkflows"]),
+.service:has(a[href*="homelinks"]),
+.service:has(a[href*="homememos"]),
+.service:has(a[href*="/notes"]) {
+  border-left: 3px solid var(--accent) !important;
+}
+
+/* Monitor — emerald */
+.service:has(a[href*="homeauto"]),
+.service:has(a[href*="homestats"]),
+.service:has(a[href*="homespeed"]),
+.service:has(a[href*="homermm"]) {
+  border-left: 3px solid var(--green) !important;
+}
+
+/* Tools — violet */
+.service:has(a[href*="homegit"]),
+.service:has(a[href*="/devtoolbox"]),
+.service:has(a[href*="homebooks"]),
+.service:has(a[href*="homepdf"]) {
+  border-left: 3px solid #a78bfa !important;
+}
+
+/* ---- Responsive ---- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Bookmark styling ---- */
+li[id*="bookmark"] a,
+.bookmark-icon {
+  transition: all 0.2s ease;
+}
+
+li[id*="bookmark"] a:hover {
+  color: var(--accent) !important;
+}

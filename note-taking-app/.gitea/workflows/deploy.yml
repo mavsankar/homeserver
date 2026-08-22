@@ -1,0 +1,29 @@
+name: Deploy Notes App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli
+
+      - name: Build and deploy
+        run: |
+          docker build -t note-taking-app .
+          docker stop note-taking-app 2>/dev/null || true
+          docker rm note-taking-app 2>/dev/null || true
+          docker run -d --name note-taking-app --restart always \
+            --network homeserver \
+            --expose 8082 \
+            note-taking-app
+

@@ -1,0 +1,41 @@
+name: infra
+
+services:
+  meshcentral:
+    image: ghcr.io/ylianst/meshcentral:latest
+    container_name: meshcentral
+    restart: always
+    environment:
+      - TZ=Asia/Kolkata
+      - DYNAMIC_CONFIG=true
+      - HOSTNAME=homermm.mavsankar.com
+      # must match the public HTTPS port; agents connect to the port the server advertises
+      - PORT=443
+      - REDIR_PORT=0
+      - TLS_OFFLOAD=true
+      - TRUSTED_PROXY=true
+      # certUrl: lets agents trust the Cloudflare certificate terminating TLS
+      - REVERSE_PROXY=homermm.mavsankar.com
+      - REVERSE_PROXY_TLS_PORT=443
+      - WEBRTC=false
+      - ALLOW_NEW_ACCOUNTS=${MESHCENTRAL_ALLOW_NEW_ACCOUNTS:-false}
+    expose:
+      - "443"
+    volumes:
+      - meshcentral-data:/opt/meshcentral/meshcentral-data
+      - meshcentral-files:/opt/meshcentral/meshcentral-files
+      - meshcentral-web:/opt/meshcentral/meshcentral-web
+      - meshcentral-backups:/opt/meshcentral/meshcentral-backups
+    networks:
+      - homeserver
+
+volumes:
+  meshcentral-data:
+  meshcentral-files:
+  meshcentral-web:
+  meshcentral-backups:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

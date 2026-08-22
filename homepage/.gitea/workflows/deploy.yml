@@ -1,0 +1,25 @@
+name: Deploy Homepage
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Deploy Homepage
+        run: |
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker cp config/. homepage:/app/config/
+          docker compose ps

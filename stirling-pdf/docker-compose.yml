@@ -1,0 +1,30 @@
+name: stirling-pdf
+
+services:
+  stirling-pdf:
+    image: stirlingtools/stirling-pdf:latest
+    container_name: stirling-pdf
+    restart: always
+    expose:
+      - "8080"
+    volumes:
+      - stirling-configs:/configs
+      - stirling-logs:/logs
+      - stirling-pipeline:/pipeline
+      - stirling-tessdata:/usr/share/tessdata
+    environment:
+      - SECURITY_ENABLELOGIN=true
+      - LANGS=en_GB
+    networks:
+      - homeserver
+
+volumes:
+  stirling-configs:
+  stirling-logs:
+  stirling-pipeline:
+  stirling-tessdata:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

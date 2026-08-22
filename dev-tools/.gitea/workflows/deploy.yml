@@ -1,0 +1,29 @@
+name: Deploy DevToolbox
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli
+
+      - name: Build and deploy
+        run: |
+          docker build -t dev-tools .
+          docker stop dev-tools 2>/dev/null || true
+          docker rm dev-tools 2>/dev/null || true
+          docker run -d --name dev-tools --restart always \
+            --network homeserver \
+            --expose 8081 \
+            dev-tools
+

@@ -1,0 +1,40 @@
+name: n8n
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    expose:
+      - "5678"
+    environment:
+      - NODE_ENV=production
+      - N8N_HOST=homeworkflows.mavsankar.com
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://homeworkflows.mavsankar.com/
+      - WEBHOOK_URL=https://homeworkflows.mavsankar.com/
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - GENERIC_TIMEZONE=Asia/Kolkata
+    volumes:
+      - n8n-data:/home/node/.n8n
+    networks:
+      - homeserver
+
+  browserless:
+    image: browserless/chrome:latest
+    container_name: browserless
+    restart: unless-stopped
+    environment:
+      - MAX_CONCURRENT_SESSIONS=5
+      - CONNECTION_TIMEOUT=60000
+    networks:
+      - homeserver
+
+volumes:
+  n8n-data:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

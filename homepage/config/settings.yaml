@@ -1,0 +1,58 @@
+title: Sankar's Homelab
+description: Home Server Dashboard
+
+theme: dark
+color: slate
+
+headerStyle: boxedWidgets
+statusStyle: dot
+
+showStats: false
+
+iconStyle: theme
+
+background:
+  image: https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2560&q=80
+  blur: md
+  brightness: 20
+  saturate: 20
+  opacity: 40
+
+target: _blank
+
+disableCollapse: false
+hideVersion: true
+useEqualHeights: true
+
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: true
+  hideVisitURL: false
+  showSearchSuggestions: true
+
+layout:
+  Apps:
+    tab: Main
+    style: column
+    icon: mdi-apps
+    header: true
+  Monitor:
+    tab: Main
+    style: column
+    icon: mdi-chart-line
+    header: true
+  Tools:
+    tab: Main
+    style: column
+    icon: mdi-wrench-outline
+    header: true
+  AI:
+    tab: Main
+    style: column
+    icon: mdi-robot-outline
+    header: true
+  JISST:
+    tab: JISST
+    style: column
+    icon: mdi-chart-areaspline
+    header: true

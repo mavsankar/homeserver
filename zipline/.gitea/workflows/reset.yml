@@ -1,0 +1,43 @@
+name: Reset Zipline
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type RESET to erase all Zipline data, including the database
+        required: true
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: Check confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "RESET" ]; then
+            echo "Confirmation missing. Nothing was changed."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Create .env
+        run: |
+          printf '%s\n' \
+            "POSTGRESQL_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" \
+            "CORE_SECRET=${{ secrets.CORE_SECRET }}" \
+            > .env
+
+      - name: Erase data and redeploy
+        run: |
+          docker compose down -v
+          docker compose pull
+          docker compose up -d
+          docker compose ps

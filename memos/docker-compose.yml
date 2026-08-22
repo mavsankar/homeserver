@@ -1,0 +1,24 @@
+name: memos
+
+services:
+  memos:
+    image: neosmemo/memos:stable
+    container_name: memos
+    restart: unless-stopped
+    expose:
+      - "5230"
+    volumes:
+      - memos-data:/var/opt/memos
+    environment:
+      - MEMOS_MODE=prod
+      - MEMOS_PORT=5230
+    networks:
+      - homeserver
+
+volumes:
+  memos-data:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

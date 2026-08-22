@@ -1,0 +1,122 @@
+{
+  "name": "Services API",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "services",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "public, max-age=3600"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1000001-0001-4000-a001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "services-api"
+    },
+    {
+      "parameters": {
+        "url": "http://homepage:3000/api/services",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "a1000001-0002-4000-a002-000000000002",
+      "name": "Fetch Services from Homepage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst services = [];\nfor (const item of items) {\n  const group = item.json;\n  const catName = group.name || 'Other';\n  const svcList = group.services || [];\n  for (const svc of svcList) {\n    services.push({\n      category: catName,\n      name: svc.name || '',\n      description: svc.description || '',\n      details: svc.details || '',\n      docs: svc.docs || null,\n      icon: svc.icon || null\n    });\n  }\n}\n\nreturn [{ json: { services, lastUpdated: new Date().toISOString() } }];"
+      },
+      "id": "a1000001-0003-4000-a003-000000000003",
+      "name": "Parse & Transform",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "a1000001-0004-4000-a004-000000000004",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Services from Homepage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Services from Homepage": {
+      "main": [
+        [
+          {
+            "node": "Parse & Transform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Transform": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "services-api-workflow",
+  "tags": []
+}

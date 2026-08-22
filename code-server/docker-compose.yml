@@ -1,0 +1,54 @@
+name: code-server
+
+services:
+  code-server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    restart: always
+    # No GITEA_TOKEN here: anything running in the editor could read it.
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+      - DEFAULT_WORKSPACE=/config/workspace
+      - PASSWORD=${CODE_SERVER_PASSWORD}
+      - SUDO_PASSWORD=${CODE_SERVER_SUDO_PASSWORD:-}
+    expose:
+      - "8443"
+    volumes:
+      - code-server-config:/config
+    networks:
+      - homeserver
+
+  code-server-open:
+    build: ./open
+    image: code-server-open:latest
+    container_name: code-server-open
+    restart: always
+    # Same uid as code-server so cloned repos stay editable in the editor.
+    user: "1000:1000"
+    environment:
+      - TZ=Asia/Kolkata
+      - HOME=/config
+      - GITEA_TOKEN=${GITEA_TOKEN}
+      - GITEA_URL=http://gitea:3000
+      - GITEA_PUBLIC_URL=https://homegit.mavsankar.com
+      - CODE_SERVER_URL=https://homecode.mavsankar.com
+      - CODE_SERVER_INTERNAL=http://code-server:8443
+      - WORKSPACE_ROOT=/config/workspace
+    expose:
+      - "8090"
+    volumes:
+      - code-server-config:/config
+    depends_on:
+      - code-server
+    networks:
+      - homeserver
+
+volumes:
+  code-server-config:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

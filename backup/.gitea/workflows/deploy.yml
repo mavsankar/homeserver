@@ -1,0 +1,71 @@
+name: Deploy Backrest
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Write restic-rest auth file
+        env:
+          RESTIC_REST_USERNAME: ${{ secrets.RESTIC_REST_USERNAME }}
+          RESTIC_REST_PASSWORD: ${{ secrets.RESTIC_REST_PASSWORD }}
+        run: |
+          if [ -z "$RESTIC_REST_USERNAME" ]; then
+            echo "ERROR: Add RESTIC_REST_USERNAME in backup repo Settings > Actions > Secrets."
+            exit 1
+          fi
+          if [ -z "$RESTIC_REST_PASSWORD" ]; then
+            echo "ERROR: Add RESTIC_REST_PASSWORD in backup repo Settings > Actions > Secrets."
+            exit 1
+          fi
+          docker volume create backrest_backrest-repos
+          auth_line="$(printf '%s\n' "$RESTIC_REST_PASSWORD" | \
+            docker run --rm -i httpd:2.4-alpine \
+              htpasswd -niB "$RESTIC_REST_USERNAME")"
+          printf '%s\n' "$auth_line" | \
+            docker run -i --rm -v backrest_backrest-repos:/data alpine \
+              sh -c 'cat > /data/.htpasswd'
+
+      - name: Deploy Backrest
+        run: |
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker compose restart restic-rest
+          docker compose ps
+
+      - name: Verify restic-rest credentials
+        env:
+          RESTIC_REST_USERNAME: ${{ secrets.RESTIC_REST_USERNAME }}
+          RESTIC_REST_PASSWORD: ${{ secrets.RESTIC_REST_PASSWORD }}
+        run: |
+          status=000
+          i=1
+          while [ "$i" -le 10 ]; do
+            status="$(docker run --rm --network homeserver curlimages/curl:latest \
+              -s -o /dev/null -w '%{http_code}' \
+              -u "$RESTIC_REST_USERNAME:$RESTIC_REST_PASSWORD" \
+              http://restic-rest:8000/config || echo 000)"
+            [ "$status" != "000" ] && break
+            i=$((i + 1))
+            sleep 3
+          done
+          if [ "$status" = "401" ]; then
+            echo "ERROR: rest-server rejected RESTIC_REST_USERNAME / RESTIC_REST_PASSWORD."
+            echo "Re-enter both secrets with no trailing spaces or newlines, then re-run."
+            exit 1
+          fi
+          echo "Credentials accepted by rest-server (HTTP $status)."
+          echo "Repository paths (use the directory shown, '.' means the URL root):"
+          docker run --rm -v backrest_backrest-repos:/data alpine \
+            sh -c 'cd /data && find . -maxdepth 3 -name config'

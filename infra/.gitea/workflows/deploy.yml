@@ -1,0 +1,74 @@
+name: Deploy Infra
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Deploy glances
+        run: |
+          docker stop glances 2>/dev/null || true
+          docker rm glances 2>/dev/null || true
+          docker run -d --name glances --restart always \
+            --network homeserver \
+            --gpus all \
+            --cpus=0.24 \
+            --expose 61208 \
+            -e "GLANCES_OPT=-w -t 10 --disable-plugin processlist,processcount,docker,containers,network,diskio,sensors,ports,connections,smart,raid,folders,irq,wifi,batpercent,hddtemp,amps,alert,ip,cloud,percpu" \
+            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            nicolargo/glances:ubuntu-latest-full
+
+      - name: Deploy speedtest-tracker
+        run: |
+          docker stop speedtest-tracker 2>/dev/null || true
+          docker rm speedtest-tracker 2>/dev/null || true
+          docker run -d --name speedtest-tracker --restart unless-stopped \
+            --network homeserver \
+            --expose 80 \
+            -e "PUID=1000" \
+            -e "PGID=1000" \
+            -e "APP_KEY=${{ secrets.SPEEDTEST_APP_KEY }}" \
+            -e "APP_URL=https://homespeed.mavsankar.com" \
+            -e "DB_CONNECTION=sqlite" \
+            -e "SPEEDTEST_SCHEDULE=0 */6 * * *" \
+            -e "DISPLAY_TIMEZONE=Asia/Kolkata" \
+            -v speedtest-data:/config \
+            lscr.io/linuxserver/speedtest-tracker:latest
+
+      - name: Deploy Gitea
+        run: |
+          cd bootstrap
+          docker compose pull gitea
+          docker compose up -d gitea
+          docker exec gitea mkdir -p /data/gitea/templates/custom /data/gitea/public/assets/js
+          docker cp gitea-custom/. gitea:/data/gitea/
+          docker restart gitea
+          docker compose ps gitea
+
+      - name: Deploy MeshCentral
+        env:
+          MESHCENTRAL_ALLOW_NEW_ACCOUNTS: ${{ vars.MESHCENTRAL_ALLOW_NEW_ACCOUNTS }}
+        run: |
+          docker compose pull meshcentral
+          docker compose up -d meshcentral
+          docker compose ps meshcentral
+
+      - name: Redeploy runner (fire-and-forget)
+        run: |
+          cd bootstrap
+          docker volume create homeserver-bootstrap_gitea-runner-data
+          docker run --rm -i -v homeserver-bootstrap_gitea-runner-data:/data alpine \
+            sh -c 'cat > /data/runner-config.yaml' < runner-config.yaml
+          docker compose pull gitea-runner
+          nohup sh -c 'sleep 10 && docker compose -p homeserver-bootstrap up -d gitea-runner' >/dev/null 2>&1 &

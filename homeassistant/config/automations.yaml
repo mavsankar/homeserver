@@ -1,0 +1,15 @@
+- id: pixel_watch_status_to_n8n
+  alias: "Pixel Watch Status to n8n"
+  description: "Reports watch battery to n8n for wear/charge reminders"
+  mode: single
+  triggers:
+    - trigger: state
+      entity_id: sensor.google_pixel_watch_2_battery_state
+    - trigger: time_pattern
+      minutes: "/30"
+  conditions:
+    - condition: time
+      after: "07:00:00"
+      before: "23:00:00"
+  actions:
+    - action: rest_command.report_watch_status

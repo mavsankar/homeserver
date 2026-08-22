@@ -1,0 +1,6 @@
+$env:NODE_ENV="production"
+$env:N8N_EDITOR_BASE_URL="https://homeworkflows.mavsankar.com/"
+$env:WEBHOOK_URL="https://homeworkflows.mavsankar.com/"
+$env:N8N_DIAGNOSTICS_ENABLED="false"
+$env:N8N_RELEASE_TYPE = "stable"
+n8n start

@@ -1,0 +1,23 @@
+name: Deploy ollama
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Deploy ollama
+        run: |
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker compose ps

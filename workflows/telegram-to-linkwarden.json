@@ -1,0 +1,643 @@
+{
+  "name": "Telegram to Linkwarden",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "5e9d91d0-c929-4ac3-aed1-6b842a6424e0",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -3072,
+        576
+      ],
+      "webhookId": "3e07a078-31b8-4b75-b4d9-b1093228cf02",
+      "credentials": {
+        "telegramApi": {
+          "id": "jGsh7d2qQf25NntN",
+          "name": "Linkwarden bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $input.first().json.message;\nconst text = msg.text || msg.caption || '';\nconst chatId = msg.chat.id;\n\n// Case 0: /tags command → list all tags\nif (text.trim().toLowerCase() === '/tags') {\n  return [{ json: { action: 'list_tags', chatId } }];\n}\n\n// Case 1: Reply to a saved message\nif (msg.reply_to_message && msg.reply_to_message.text) {\n  const replyText = msg.reply_to_message.text;\n  const savedMatch = replyText.match(/✅ Saved: (https?:\\/\\/[^\\s]+)/);\n  if (savedMatch) {\n    // /title command → rename the link\n    const titleMatch = text.match(/^\\/title\\s+(.+)$/i);\n    if (titleMatch) {\n      return [{ json: { action: 'rename_title', url: savedMatch[1], newTitle: titleMatch[1].trim(), chatId } }];\n    }\n    // Otherwise treat as tags\n    if (text.trim()) {\n      const tags = text.trim().split(/[,\\s]+/).filter(t => t.length > 0);\n      return [{ json: { action: 'categorize', url: savedMatch[1], tags, chatId } }];\n    }\n  }\n}\n\n// Case 2: Message contains a URL → save it\nconst entities = msg.entities || msg.caption_entities || [];\nfor (const entity of entities) {\n  if (entity.type === 'url') {\n    const url = text.substring(entity.offset, entity.offset + entity.length);\n    return [{ json: { action: 'save', url, chatId } }];\n  }\n  if (entity.type === 'text_link') {\n    return [{ json: { action: 'save', url: entity.url, chatId } }];\n  }\n}\nconst match = text.match(/https?:\\/\\/[^\\s<>\"']+/);\nif (match) {\n  return [{ json: { action: 'save', url: match[0].replace(/[),.!?;]+$/, ''), chatId } }];\n}\n\n// Case 3: No URL found\nreturn [{ json: { action: 'none', url: '', chatId } }];"
+      },
+      "id": "ab65871d-4cb6-4f87-9605-17cd68d932cd",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2848,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.action }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "save",
+              "outputKey": "save"
+            },
+            {
+              "value2": "categorize",
+              "outputKey": "categorize"
+            },
+            {
+              "value2": "list_tags",
+              "outputKey": "list_tags"
+            },
+            {
+              "value2": "none",
+              "outputKey": "none"
+            },
+            {
+              "value2": "rename_title",
+              "outputKey": "rename_title"
+            }
+          ]
+        }
+      },
+      "id": "47d9fdd2-852a-40d1-8bf8-7e5d2e541268",
+      "name": "Action?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        -2624,
+        544
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://homelinks.mavsankar.com/api/v1/links",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $json.url, collection: {} }) }}",
+        "options": {}
+      },
+      "id": "fdfffe36-6267-47ba-90a8-fc15a6e8528c",
+      "name": "Save Link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2400,
+        288
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst chatId = $('Parse Message').first().json.chatId;\nconst url = $('Parse Message').first().json.url;\nconst link = response.response || response;\nconst title = link.name || link.title || url;\nconst linkId = link.id;\nconst collection = link.collection || { id: link.collectionId, ownerId: link.createdById };\nconst tags = (link.tags || []).map(t => ({ id: t.id, name: t.name }));\nreturn [{ json: { url, title, chatId, linkId, collection, tags } }];"
+      },
+      "id": "a1b2c3d4-5555-4aaa-bbbb-000000000005",
+      "name": "Extract Title",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://homelinks.mavsankar.com/api/v1/links/' + $json.linkId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $json.linkId, url: $json.url, name: $json.title, tags: $json.tags, collection: { id: $json.collection.id, ownerId: $json.collection.ownerId } }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-aaaa-4aaa-bbbb-000000000010",
+      "name": "Update Link Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1952,
+        288
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extract Title').item.json.chatId }}",
+        "text": "={{ '✅ Saved: ' + $('Extract Title').item.json.url + '\\n📝 ' + $('Extract Title').item.json.title }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "none"
+        }
+      },
+      "id": "d9ee49c3-d521-4223-9e83-547a1a3be9ef",
+      "name": "Reply Saved",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1728,
+        288
+      ],
+      "webhookId": "503eca27-a5c8-449e-bf03-d7d9a043078f",
+      "credentials": {
+        "telegramApi": {
+          "id": "jGsh7d2qQf25NntN",
+          "name": "Linkwarden bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://homelinks.mavsankar.com/api/v1/links",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "searchQueryString",
+              "value": "={{ $json.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-6666-4aaa-bbbb-000000000006",
+      "name": "Find Link for Rename",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2400,
+        1056
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst parseMsg = $('Parse Message').first().json;\n\nlet links = [];\nif (Array.isArray(input)) links = input;\nelse if (input.response && Array.isArray(input.response)) links = input.response;\nelse if (Array.isArray(input.data)) links = input.data;\nelse {\n  for (const key of Object.keys(input)) {\n    if (Array.isArray(input[key])) { links = input[key]; break; }\n  }\n}\n\nlet found = links.find(l => l.url === parseMsg.url);\nif (!found) found = links.find(l => l.url && l.url.includes(parseMsg.url));\nif (!found && links.length > 0) found = links[0];\n\nif (!found || !found.id) {\n  throw new Error('Could not find link for URL: ' + parseMsg.url);\n}\n\nconst collection = found.collection || { id: found.collectionId, ownerId: found.createdById };\nconst tags = (found.tags || []).map(t => ({ id: t.id, name: t.name }));\n\nreturn [{ json: { linkId: found.id, linkUrl: found.url, newTitle: parseMsg.newTitle, chatId: parseMsg.chatId, url: parseMsg.url, collection, tags } }];"
+      },
+      "id": "a1b2c3d4-7777-4aaa-bbbb-000000000007",
+      "name": "Prepare Rename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://homelinks.mavsankar.com/api/v1/links/' + $json.linkId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $json.linkId, url: $json.linkUrl, name: $json.newTitle, tags: $json.tags, collection: { id: $json.collection.id, ownerId: $json.collection.ownerId } }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-8888-4aaa-bbbb-000000000008",
+      "name": "Update Link Title",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1952,
+        1056
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Rename').item.json.chatId }}",
+        "text": "={{ '✏️ Renamed: ' + $('Prepare Rename').item.json.url + '\\n📝 ' + $('Prepare Rename').item.json.newTitle }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "none"
+        }
+      },
+      "id": "a1b2c3d4-9999-4aaa-bbbb-000000000009",
+      "name": "Reply Renamed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1728,
+        1056
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "jGsh7d2qQf25NntN",
+          "name": "Linkwarden bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://homelinks.mavsankar.com/api/v1/links",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "searchQueryString",
+              "value": "={{ $json.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7836f04f-7d1b-4d33-8296-deb9235fa51e",
+      "name": "Find Link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2400,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst parseMsg = $('Parse Message').first().json;\n\n// Handle various response structures from Linkwarden API\nlet links = [];\nif (Array.isArray(input)) {\n  links = input;\n} else if (input.response && Array.isArray(input.response)) {\n  links = input.response;\n} else if (Array.isArray(input.data)) {\n  links = input.data;\n} else {\n  const keys = Object.keys(input);\n  for (const key of keys) {\n    if (Array.isArray(input[key])) {\n      links = input[key];\n      break;\n    }\n  }\n}\n\nlet found = links.find(l => l.url === parseMsg.url);\nif (!found) {\n  found = links.find(l => l.url && l.url.includes(parseMsg.url));\n}\nif (!found && links.length > 0) {\n  found = links[0];\n}\n\nif (!found || !found.id) {\n  throw new Error('Could not find link in Linkwarden for URL: ' + parseMsg.url);\n}\n\nconst linkId = found.id;\nconst linkUrl = found.url;\nconst existingTags = (found.tags || []).map(t => ({ id: t.id, name: t.name }));\nconst collection = found.collection || { id: found.collectionId, ownerId: found.createdById };\n\n// New tags get id: 0 (tells Linkwarden to create them)\nconst newTags = parseMsg.tags.map(t => ({ id: 0, name: t }));\n// Merge and deduplicate by name (keep existing id if tag already exists)\nconst tagMap = new Map();\nfor (const t of existingTags) { tagMap.set(t.name.toLowerCase(), t); }\nfor (const t of newTags) { if (!tagMap.has(t.name.toLowerCase())) tagMap.set(t.name.toLowerCase(), t); }\nconst uniqueTags = [...tagMap.values()];\n\nreturn [{ json: { linkId, linkUrl, tags: uniqueTags, collection, chatId: parseMsg.chatId, url: parseMsg.url } }];"
+      },
+      "id": "6e48dcc8-cde1-47c3-b37d-2921c52a8595",
+      "name": "Prepare Tags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://homelinks.mavsankar.com/api/v1/links/' + $json.linkId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $json.linkId, url: $json.linkUrl, tags: $json.tags, collection: { id: $json.collection.id, ownerId: $json.collection.ownerId } }) }}",
+        "options": {}
+      },
+      "id": "697ef971-82b9-4f7b-8404-3ff93322dcaa",
+      "name": "Update Tags",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1952,
+        480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Parse Message').item.json.chatId }}",
+        "text": "={{ '🏷️ Tagged: ' + $('Parse Message').item.json.tags.join(', ') + '\\n🔗 ' + $('Parse Message').item.json.url }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "none"
+        }
+      },
+      "id": "aa7f92a3-c85e-4c54-832d-75c7be10514e",
+      "name": "Reply Tagged",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1728,
+        480
+      ],
+      "webhookId": "66473e53-3c2d-43d8-a409-8c78f188665b",
+      "credentials": {
+        "telegramApi": {
+          "id": "jGsh7d2qQf25NntN",
+          "name": "Linkwarden bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "❌ No URL found. Send me a link, or reply to a saved link with tags.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e886e313-7031-44bc-aba0-2f42e24a007f",
+      "name": "Reply No URL",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -2400,
+        864
+      ],
+      "webhookId": "e1e8fafb-6f23-49f1-b37f-f3c183d72f1a",
+      "credentials": {
+        "telegramApi": {
+          "id": "jGsh7d2qQf25NntN",
+          "name": "Linkwarden bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://homelinks.mavsankar.com/api/v1/tags",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "6b2306b2-dc19-4f20-97e0-3c776c7664b5",
+      "name": "Fetch Tags",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2400,
+        672
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "G6ES6IlwkIolzI3S",
+          "name": "Linkwarden API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst chatId = $('Parse Message').first().json.chatId;\nlet tagList = [];\nif (input.data && Array.isArray(input.data.tags)) {\n  tagList = input.data.tags.map(t => t.name).sort();\n} else if (Array.isArray(input)) {\n  tagList = input.map(t => t.name).sort();\n} else if (input.response && Array.isArray(input.response)) {\n  tagList = input.response.map(t => t.name).sort();\n}\nconst text = tagList.length > 0\n  ? '🏷️ Your tags:\\n\\n' + tagList.map(t => '• ' + t).join('\\n')\n  : '🏷️ No tags yet. Save a link and reply to it with tags.';\nreturn [{ json: { chatId, text } }];"
+      },
+      "id": "0d9a2b29-7f34-4c0c-897d-c053a0a7f732",
+      "name": "Format Tags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "dbf677c3-44b0-46d8-9505-71061fdcce4d",
+      "name": "Reply Tags",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1952,
+        672
+      ],
+      "webhookId": "ac103753-842d-4012-bbf0-d1c4d412c8bf",
+      "credentials": {
+        "telegramApi": {
+          "id": "jGsh7d2qQf25NntN",
+          "name": "Linkwarden bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Message": {
+      "main": [
+        [
+          {
+            "node": "Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Link": {
+      "main": [
+        [
+          {
+            "node": "Extract Title",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Title": {
+      "main": [
+        [
+          {
+            "node": "Update Link Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Link Name": {
+      "main": [
+        [
+          {
+            "node": "Reply Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Link for Rename": {
+      "main": [
+        [
+          {
+            "node": "Prepare Rename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Rename": {
+      "main": [
+        [
+          {
+            "node": "Update Link Title",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Link Title": {
+      "main": [
+        [
+          {
+            "node": "Reply Renamed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Link": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Tags": {
+      "main": [
+        [
+          {
+            "node": "Update Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Tags": {
+      "main": [
+        [
+          {
+            "node": "Reply Tagged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tags": {
+      "main": [
+        [
+          {
+            "node": "Format Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Tags": {
+      "main": [
+        [
+          {
+            "node": "Reply Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action?": {
+      "main": [
+        [
+          {
+            "node": "Save Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Tags",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply No URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Link for Rename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4f5f4bb1-affa-4ecb-bcb3-2a9457c48ab9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cf43765004113366e17ffa8c38974a4663b5e3b6dbe772f884579ce632ced006"
+  },
+  "id": "jeTzkMJPUpNYPR3d",
+  "tags": []
+}

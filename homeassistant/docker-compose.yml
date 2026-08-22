@@ -1,0 +1,25 @@
+name: homeassistant
+
+services:
+  homeassistant:
+    build: .
+    image: homeassistant-custom:latest
+    container_name: homeassistant
+    restart: unless-stopped
+    privileged: true
+    expose:
+      - "8123"
+    volumes:
+      - homeassistant-config:/config
+    environment:
+      - TZ=Asia/Kolkata
+    networks:
+      - homeserver
+
+volumes:
+  homeassistant-config:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

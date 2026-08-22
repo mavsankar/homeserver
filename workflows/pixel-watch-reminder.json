@@ -1,0 +1,219 @@
+{
+  "name": "Pixel Watch Reminder",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pixel-watch-status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4d4b2013-d2a1-4b1a-aa92-677cb1e3dd28",
+      "name": "Webhook - Watch Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1904,
+        608
+      ],
+      "webhookId": "pixel-watch-status"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok' }) }}",
+        "options": {}
+      },
+      "id": "31a9129d-8ae6-47bd-831a-7ed7c97b032c",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1664,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nconst batteryLevel = body.battery_level ?? null;\nconst isCharging = body.is_charging ?? false;\n\n// Quiet hours check (don't notify between 11 PM and 7 AM)\nconst now = new Date();\nconst hour = now.getHours();\nconst isQuietHours = hour >= 23 || hour < 7;\n\nif (isQuietHours) {\n  return [{ json: { action: 'skip', reason: 'quiet_hours' } }];\n}\n\n// Charging and battery > 80% — remind to wear\nif (isCharging && batteryLevel !== null && batteryLevel > 80) {\n  return [{ json: { action: 'wear', batteryLevel } }];\n}\n\n// Not charging and battery is low — remind to charge\nif (!isCharging && batteryLevel !== null && batteryLevel <= 20) {\n  return [{ json: { action: 'charge', batteryLevel } }];\n}\n\n// Everything else — no action\nreturn [{ json: { action: 'skip', reason: 'no_action_needed' } }];\n"
+      },
+      "id": "c31c6f99-d4ce-4ce1-8419-0b126dff72cd",
+      "name": "Process Watch Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.action }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "charge",
+              "outputKey": "charge"
+            },
+            {
+              "value2": "wear",
+              "outputKey": "wear"
+            },
+            {
+              "value2": "skip",
+              "outputKey": "skip"
+            }
+          ]
+        }
+      },
+      "id": "8905a721-24a3-459e-a420-1d2397aacf58",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "=1079714135",
+        "text": "=🔋🪫 *Pixel Watch battery is low ({{ $json.batteryLevel }}%)!*\n\nYour watch isn't charging. Please plug it in!",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "df431a31-0cee-4872-8690-4c340b8ba46a",
+      "name": "Send Charge Reminder",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1168,
+        480
+      ],
+      "webhookId": "634827f9-074e-42e1-8df8-1bc733fc453d",
+      "credentials": {
+        "telegramApi": {
+          "id": "usfpmxbYsxB8MkCR",
+          "name": "Memos Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=1079714135",
+        "text": "=⌚ *Don't forget to wear your Pixel Watch!*\n\nBattery: {{ $json.batteryLevel }}% {{ $json.isCharging ? '(charging)' : '' }}\nIt's waiting for you!",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "e4a61aa5-2620-4a64-b339-77a64208618a",
+      "name": "Send Wear Reminder",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1168,
+        640
+      ],
+      "webhookId": "89e1df0c-afa8-4d8a-a8b1-da0742349d38",
+      "credentials": {
+        "telegramApi": {
+          "id": "usfpmxbYsxB8MkCR",
+          "name": "Memos Bot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "4c032cad-4e14-4129-98c6-4d56823b8d6c",
+      "name": "No Action",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        800
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Watch Status": {
+      "main": [
+        [
+          {
+            "node": "Process Watch Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Watch Data": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Send Charge Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Wear Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "263d8227-4f68-42e8-851c-a7dbd690ca8b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cf43765004113366e17ffa8c38974a4663b5e3b6dbe772f884579ce632ced006"
+  },
+  "id": "R52w01wxr35go23d",
+  "tags": [
+    {
+      "name": "automation",
+      "id": "wNLAO9pc5k9sTa5a",
+      "updatedAt": "2026-06-01T10:41:41.043Z",
+      "createdAt": "2026-06-01T10:41:41.043Z"
+    },
+    {
+      "name": "health",
+      "id": "SGAoyJPlR0A3Tvgl",
+      "updatedAt": "2026-06-01T10:41:41.063Z",
+      "createdAt": "2026-06-01T10:41:41.063Z"
+    }
+  ]
+}

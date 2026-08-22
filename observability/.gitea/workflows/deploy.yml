@@ -1,0 +1,29 @@
+name: Deploy Observability
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Create .env
+        run: |
+          printf '%s\n' \
+            "GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}" \
+            "GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+            "INGEST_TOKEN=${{ secrets.INGEST_TOKEN }}" \
+            "INGEST_ALLOWED_ORIGINS=${{ secrets.INGEST_ALLOWED_ORIGINS }}" \
+            > .env
+
+      - name: Deploy
+        run: docker compose build --pull && docker compose down && docker compose up -d

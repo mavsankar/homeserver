@@ -1,0 +1,18 @@
+# Secrets & credentials
+backupcodes_meshcentral.txt
+.env
+*.env
+
+# Personal notes
+blog-series-plan.md
+saas-idea1-highway-plan.md
+
+# Cloned repos
+micromastery.github.io/
+mavsankar.github.io/
+
+# Push script
+push-to-github.ps1
+
+*saas-idea1*
+

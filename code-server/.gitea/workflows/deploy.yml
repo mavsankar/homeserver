@@ -1,0 +1,41 @@
+name: Deploy code-server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Create .env
+        env:
+          CODE_SERVER_PASSWORD: ${{ secrets.CODE_SERVER_PASSWORD }}
+          CODE_SERVER_SUDO_PASSWORD: ${{ secrets.CODE_SERVER_SUDO_PASSWORD }}
+          # Gitea reserves the GITEA_ prefix for secret names, hence HOMEGIT_TOKEN.
+          GITEA_TOKEN: ${{ secrets.HOMEGIT_TOKEN }}
+        run: |
+          # Fail closed: an empty PASSWORD makes code-server serve a root shell to the internet.
+          [ -n "$CODE_SERVER_PASSWORD" ] || { echo "Missing secret: CODE_SERVER_PASSWORD"; exit 1; }
+          [ -n "$GITEA_TOKEN" ] || { echo "Missing secret: HOMEGIT_TOKEN"; exit 1; }
+          printf '%s\n' \
+            "CODE_SERVER_PASSWORD=$CODE_SERVER_PASSWORD" \
+            "CODE_SERVER_SUDO_PASSWORD=$CODE_SERVER_SUDO_PASSWORD" \
+            "GITEA_TOKEN=$GITEA_TOKEN" \
+            > .env
+
+      - name: Deploy code-server
+        run: |
+          docker compose pull code-server
+          docker compose build code-server-open
+          docker compose up -d --remove-orphans
+          docker compose ps

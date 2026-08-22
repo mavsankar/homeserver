@@ -1,0 +1,29 @@
+- greeting:
+    text_size: xl
+    text: Hey, Sankar
+
+- glances:
+    url: https://homestats.mavsankar.com
+    version: 4
+    cpu: true
+    mem: true
+    uptime: true
+    expanded: true
+    label: Server
+
+- openmeteo:
+    label: Gachibowli
+    latitude: 17.4401
+    longitude: 78.3489
+    timezone: Asia/Kolkata
+    units: metric
+    cache: 5
+    format:
+      maximumFractionDigits: 1
+
+- datetime:
+    text_size: sm
+    format:
+      dateStyle: long
+      timeStyle: medium
+      hour12: true

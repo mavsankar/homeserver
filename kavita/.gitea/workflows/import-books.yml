@@ -1,0 +1,31 @@
+name: Import Books
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_path:
+        description: Host folder holding the files to import
+        default: /srv/books-import
+        required: true
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli
+
+      - name: Copy files into the library volume
+        env:
+          SOURCE_PATH: ${{ inputs.source_path }}
+        run: |
+          docker run --rm \
+            -v "$SOURCE_PATH":/src:ro \
+            -v kavita_kavita-books:/books \
+            alpine sh -c 'cp -a /src/. /books/ && du -sh /books && ls /books'
+
+      - name: Restart Kavita to pick up new files
+        run: docker restart kavita

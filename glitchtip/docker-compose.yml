@@ -1,0 +1,70 @@
+name: glitchtip
+
+# Self-hosted, Sentry-compatible error tracking for the JISST backend + frontend.
+# Exposed at homejisst-errors.mavsankar.com via the reverse proxy.
+# Runs in all-in-one mode (web + embedded worker); migrations run on startup.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: glitchtip-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - glitchtip-internal
+
+  redis:
+    image: valkey/valkey:8-alpine
+    container_name: glitchtip-redis
+    restart: unless-stopped
+    networks:
+      - glitchtip-internal
+
+  web:
+    image: glitchtip/glitchtip:6.1.8
+    container_name: glitchtip-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY}
+      PORT: "8080"
+      SERVER_ROLE: all_in_one
+      GLITCHTIP_DOMAIN: https://homejisst-errors.mavsankar.com
+      CSRF_TRUSTED_ORIGINS: https://homejisst-errors.mavsankar.com
+      ENABLE_USER_REGISTRATION: "False"
+      DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL:-webmaster@localhost}
+      EMAIL_URL: ${GLITCHTIP_EMAIL_URL:-consolemail://}
+      GLITCHTIP_MAX_EVENT_LIFE_DAYS: "90"
+    expose:
+      - "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - uploads:/code/uploads
+    networks:
+      - glitchtip-internal
+      - homeserver
+
+volumes:
+  pg-data:
+  uploads:
+
+networks:
+  glitchtip-internal:
+  homeserver:
+    external: true
+    name: homeserver
+

@@ -1,0 +1,264 @@
+{
+  "name": "Memos Weekly Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://homememos.mavsankar.com/api/v1/memos?pageSize=50",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "bf339599-874a-45ba-946f-5efbf2f2347f",
+      "name": "Fetch Week Memos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "oKlO3q3UPuoqpAPx",
+          "name": "Memos Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nlet memos = input.memos || [];\nif (!Array.isArray(memos)) memos = [];\n\n// Filter to last 7 days\nconst oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);\nmemos = memos.filter(m => new Date(m.createTime) >= oneWeekAgo);\n\nif (memos.length === 0) {\n  return [{ json: { skip: true, text: '📊 Weekly Digest\\n\\nNo memos this week. Start capturing thoughts!' } }];\n}\n\n// Prepare memo summaries for the LLM\nconst memoSummaries = memos.map(m => {\n  const date = m.createTime ? m.createTime.substring(0, 10) : 'unknown';\n  const content = (m.content || '').substring(0, 200);\n  return `[${date}] ${content}`;\n}).join('\\n---\\n');\n\nreturn [{ json: { skip: false, memoSummaries, memoCount: memos.length } }];"
+      },
+      "id": "70bed02b-65d8-4fe3-8600-af638ec3bbb8",
+      "name": "Build Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-dddd-4aaa-bbbb-000000000011",
+      "name": "Has Memos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gemma3:4b', prompt: 'You are summarizing my personal memos from this week into a weekly digest for Telegram. Be concise and factual.\\n\\nRules:\\n- DO NOT include motivational quotes or insights\\n- DO NOT repeat information across sections\\n- DO NOT ask follow-up questions\\n- DO NOT add action items (todos already cover that)\\n- Use emoji sparingly\\n\\nFormat exactly like this:\\n\\n🔍 Patterns:\\n(One sentence on what the focus is for this week)\\n\\nHere is the summary of different themes from the memos for this week:\\n(Group memos by theme/tag. For each theme, write a short paragraph summarizing what was captured.)\\n\\n✅ Open Todos:\\n(List any unchecked todos found in the memos, if any. If none, omit this section.)\\n\\n---\\nHere are my memos from this week (' + $json.memoCount + ' total):\\n\\n' + $json.memoSummaries, stream: false, options: { num_predict: 512, temperature: 0.4 } }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "a1b2c3d4-eeee-4aaa-bbbb-000000000012",
+      "name": "Generate Digest via Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst response = input.response || input.text || input;\nlet body = '';\nif (typeof response === 'string') {\n  body = response;\n} else if (response.response) {\n  body = response.response;\n} else {\n  body = JSON.stringify(response).substring(0, 500);\n}\n// Convert **bold** to *bold* for Telegram\nbody = body.replace(/\\*\\*(.+?)\\*\\*/g, '*$1*');\n// Replace bullet * with - to avoid unmatched asterisks\nbody = body.replace(/^\\*\\s+/gm, '- ');\nbody = body.replace(/^\\*   /gm, '- ');\nlet text = '📊 *Weekly Digest* (AI-generated)\\n\\n' + body;\ntext += '\\n\\n🔗 Browse all: https://homememos.mavsankar.com';\nreturn [{ json: { text } }];"
+      },
+      "id": "a1b2c3d4-ffff-4aaa-bbbb-000000000013",
+      "name": "Format LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "1079714135",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "decc8fde-2b30-444f-839d-0e75ff2d99f1",
+      "name": "Send Digest",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        -80
+      ],
+      "webhookId": "f67418f2-b932-4855-adac-2f908b56a69d",
+      "credentials": {
+        "telegramApi": {
+          "id": "usfpmxbYsxB8MkCR",
+          "name": "Memos Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1079714135",
+        "text": "={{ $('Build Digest').item.json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "a1b2c3d4-cccc-4aaa-bbbb-000000000014",
+      "name": "Send No Memos",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "usfpmxbYsxB8MkCR",
+          "name": "Memos Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                6
+              ],
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "84ee6cba-5f5d-4763-b0a8-3e4526ab1a29",
+      "name": "Every Saturday 10am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Fetch Week Memos": {
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Has Memos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Memos?": {
+      "main": [
+        [
+          {
+            "node": "Generate Digest via Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send No Memos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Digest via Ollama": {
+      "main": [
+        [
+          {
+            "node": "Format LLM Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format LLM Response": {
+      "main": [
+        [
+          {
+            "node": "Send Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Saturday 10am": {
+      "main": [
+        [
+          {
+            "node": "Fetch Week Memos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8add4deb-f0a7-4633-9158-cbbda8136157",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cf43765004113366e17ffa8c38974a4663b5e3b6dbe772f884579ce632ced006"
+  },
+  "id": "eG9PkzfSzBY2cduN",
+  "tags": []
+}

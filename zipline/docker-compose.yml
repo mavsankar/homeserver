@@ -1,0 +1,52 @@
+name: zipline
+
+services:
+  postgresql:
+    image: postgres:16
+    container_name: zipline-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=zipline
+      - POSTGRES_PASSWORD=${POSTGRESQL_PASSWORD}
+      - POSTGRES_DB=zipline
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'zipline']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zipline-internal
+
+  zipline:
+    image: ghcr.io/diced/zipline
+    container_name: zipline
+    restart: unless-stopped
+    environment:
+      - CORE_SECRET=${CORE_SECRET}
+      - DATABASE_URL=postgres://zipline:${POSTGRESQL_PASSWORD}@postgresql:5432/zipline
+    expose:
+      - "3000"
+    volumes:
+      - zipline-uploads:/zipline/uploads
+      - zipline-public:/zipline/public
+      - zipline-themes:/zipline/themes
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - zipline-internal
+      - homeserver
+
+volumes:
+  pgdata:
+  zipline-uploads:
+  zipline-public:
+  zipline-themes:
+
+networks:
+  zipline-internal:
+  homeserver:
+    external: true
+    name: homeserver

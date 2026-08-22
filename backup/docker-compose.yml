@@ -1,0 +1,55 @@
+name: backrest
+
+services:
+  backrest:
+    image: ghcr.io/garethgeorge/backrest:latest
+    container_name: backrest
+    hostname: backrest
+    restart: always
+    environment:
+      - TZ=Asia/Kolkata
+      - BACKREST_PORT=0.0.0.0:9898
+      - BACKREST_CONFIG=/config/config.json
+      - BACKREST_DATA=/data
+      - XDG_CACHE_HOME=/cache
+      - TMPDIR=/tmp
+    expose:
+      - "9898"
+    volumes:
+      - backrest-config:/config        # Backrest config (login, repo, plan, 6h schedule) — persists across redeploys
+      - backrest-data:/data            # operation log / restic binary
+      - backrest-cache:/cache
+      - backrest-repos:/repos          # local encrypted restic repo lives here (portable for cross-device restore)
+      - /var/lib/docker/volumes:/userdata:ro   # ALL docker volumes, read-only, under one path — new services auto-included
+      - /var/run/docker.sock:/var/run/docker.sock  # for optional DB-quiesce pre-backup hooks
+    networks:
+      - homeserver
+
+  # Serves the local restic repo over HTTPS (via reverse proxy) so a new
+  # machine's Backrest can restore across the internet — no copying, no SSH.
+  # Auth: rest-server reads /data/.htpasswd (written by CI from a secret).
+  # --append-only prevents anyone reaching the endpoint from deleting backups.
+  restic-rest:
+    image: restic/rest-server:latest
+    container_name: restic-rest
+    restart: always
+    environment:
+      - TZ=Asia/Kolkata
+      - OPTIONS=--append-only
+    expose:
+      - "8000"
+    volumes:
+      - backrest-repos:/data           # same repo Backrest writes to
+    networks:
+      - homeserver
+
+volumes:
+  backrest-config:
+  backrest-data:
+  backrest-cache:
+  backrest-repos:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

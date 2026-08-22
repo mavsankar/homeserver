@@ -1,0 +1,109 @@
+{
+  "name": "Homepage Screenshot Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "homepage-screenshot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0f2eb4d5-ce18-46c8-8380-e1e60a0d98ad",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "homepage-screenshot"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://browserless:3000/screenshot",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"url\": \"http://homepage:3000\",\n  \"gotoOptions\": {\n    \"waitUntil\": \"networkidle2\"\n  },\n  \"options\": {\n    \"fullPage\": false,\n    \"type\": \"png\"\n  },\n  \"viewport\": {\n    \"width\": 1920,\n    \"height\": 1080\n  },\n  \"waitFor\": 5000\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "bd356484-88c4-4a8b-8777-fe3d16e62f0d",
+      "name": "Take Screenshot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "image/png"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "public, max-age=3600"
+              }
+            ]
+          }
+        }
+      },
+      "id": "c6772f2f-2fc0-431c-8c53-c91e82dd0978",
+      "name": "Respond with Screenshot",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Take Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Take Screenshot": {
+      "main": [
+        [
+          {
+            "node": "Respond with Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3bc1d14f-9a98-47e2-b967-d0362fb81108",
+  "meta": {
+    "instanceId": "cf43765004113366e17ffa8c38974a4663b5e3b6dbe772f884579ce632ced006"
+  },
+  "nodeGroups": [],
+  "id": "ThzegLange1AH3AV",
+  "tags": []
+}

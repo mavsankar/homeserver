@@ -1,0 +1,10 @@
+{
+  "name": "telemetry-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny zero-dependency ingest gateway: browser beacons + backend audit events -> Loki",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

@@ -1,0 +1,23 @@
+name: kavita
+
+services:
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    restart: always
+    expose:
+      - "5000"
+    volumes:
+      - kavita-config:/kavita/config
+      - kavita-books:/books
+    networks:
+      - homeserver
+
+volumes:
+  kavita-config:
+  kavita-books:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

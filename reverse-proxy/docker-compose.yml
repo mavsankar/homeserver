@@ -1,0 +1,26 @@
+name: reverse-proxy
+
+services:
+  reverse-proxy:
+    build: .
+    container_name: reverse-proxy
+    restart: always
+    expose:
+      - "8000"
+    networks:
+      - homeserver
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - homeserver
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

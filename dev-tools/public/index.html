@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevToolbox</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-header" id="home-btn" title="Go to Home Page">
+        <span class="logo">🧰</span>
+        <span class="logo-text">DevToolbox</span>
+      </div>
+      <div class="search-box">
+        <input type="text" id="tool-search" placeholder="Search tools... (Ctrl+K)" autocomplete="off">
+      </div>
+      <ul class="tool-list" id="tool-list"></ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content" id="content">
+      <!-- Tool views are injected here -->
+    </main>
+  </div>
+
+  <!-- Third-party libs loaded from CDN for lightweight deployment -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+  <script src="js/tools.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

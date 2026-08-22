@@ -1,0 +1,27 @@
+# Home Assistant Configuration
+homeassistant:
+  name: Home
+  unit_system: metric
+  time_zone: "Asia/Kolkata"
+
+# Reverse proxy support
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 10.0.0.0/8
+
+# Enable default integrations
+default_config:
+
+# Automations (managed via file for version control)
+automation: !include automations.yaml
+
+# Send watch status to n8n
+rest_command:
+  report_watch_status:
+    url: "http://n8n:5678/webhook/pixel-watch-status"
+    method: POST
+    content_type: "application/json; charset=utf-8"
+    payload: '{"battery_level": {{ states("sensor.google_pixel_watch_2_battery_level") | int(0) }}, "is_charging": {{ is_state("sensor.google_pixel_watch_2_battery_state", "charging") | tojson }}}'

@@ -1,0 +1,211 @@
+- Apps:
+    - Workflows:
+        href: https://homeworkflows.mavsankar.com
+        description: Automation & integrations
+        details: n8n — Visual workflow automation that connects all my services together — Telegram bots, scheduled digests, webhook APIs, and deployment triggers.
+        icon: si-n8n
+        docs: https://docs.n8n.io/
+        server: local
+        container: n8n
+
+    - Linkwarden:
+        href: https://homelinks.mavsankar.com
+        description: Bookmark manager
+        details: Saves bookmarks with full-page screenshots and archives. I send links via Telegram and they're auto-categorized and searchable.
+        icon: sh-linkwarden
+        docs: https://docs.linkwarden.app/
+        server: local
+        container: linkwarden
+
+    - Memos:
+        href: https://homememos.mavsankar.com
+        description: Quick notes & ideas
+        details: Lightweight note-taking for quick thoughts, reminders, and todos. Integrated with Telegram for capture and Ollama for weekly AI-generated summaries.
+        icon: sh-memos
+        docs: https://www.usememos.com/docs
+        server: local
+        container: memos
+
+    - Notes:
+        href: https://home.mavsankar.com/notes
+        description: Knowledge base
+        details: A custom-built markdown note-taking app for longer-form dev notes and documentation. Serves as a personal wiki.
+        icon: mdi-notebook-edit-outline
+        docs: https://github.com/mavsankar/homeserver
+        server: local
+        container: note-taking-app
+
+    - Kavita:
+        href: https://homebooks.mavsankar.com
+        description: Digital library
+        details: Self-hosted ebook and comics reader. Supports EPUB, PDF, and CBZ with reading progress sync across devices.
+        icon: sh-kavita
+        docs: https://wiki.kavitareader.com/
+        server: local
+        container: kavita
+
+    - Orbital:
+        href: https://orbital.mavsankar.com
+        description: Gravity slingshot game
+        details: A custom-built browser game where you slingshot a projectile using planetary gravity. A fun little canvas experiment self-hosted on the homeserver.
+        icon: mdi-orbit
+        docs: https://github.com/mavsankar/homeserver
+        server: local
+        container: orbital
+
+- Monitor:
+    - Home Assistant:
+        href: https://homeauto.mavsankar.com
+        description: Smart home control
+        details: Controls smart lights, plugs, and sensors. Runs automations like turning off devices at night and energy monitoring.
+        icon: sh-home-assistant
+        docs: https://www.home-assistant.io/docs/
+        server: local
+        container: homeassistant
+
+    - Glances:
+        href: https://homestats.mavsankar.com
+        description: System performance
+        details: Real-time system monitoring — CPU, RAM, disk, network, and GPU usage. Feeds into the Homepage dashboard widgets.
+        icon: sh-glances
+        docs: https://glances.readthedocs.io/
+        server: local
+        container: glances
+
+    - Dozzle:
+        href: https://homelogs.mavsankar.com
+        description: Container log viewer
+        details: Real-time Docker container log viewer. Stream and search logs from all running containers in a clean web UI — no agents or databases needed.
+        icon: sh-dozzle
+        docs: https://dozzle.dev/guide/getting-started
+        server: local
+        container: dozzle
+
+    - Speedtest:
+        href: https://homespeed.mavsankar.com
+        description: Network speed history
+        details: Runs scheduled internet speed tests and tracks history over time. Useful for catching ISP issues.
+        icon: sh-speedtest-tracker
+        docs: https://docs.speedtest-tracker.dev/
+        server: local
+        container: speedtest-tracker
+        widget:
+          type: speedtest
+          url: http://speedtest-tracker
+
+    - MeshCentral:
+        href: https://homermm.mavsankar.com
+        description: Remote management
+        details: Full remote desktop and terminal access to the server. Replaces the need for a physical monitor — works from any browser, anywhere.
+        icon: sh-meshcentral
+        docs: https://meshcentral.com/docs/
+        siteMonitor: https://homermm.mavsankar.com
+        server: local
+        container: meshcentral
+
+    - Grafana:
+        href: https://homedashboard.mavsankar.com
+        description: App activity & health
+        details: Grafana dashboards over Loki — tracks JISST user activity, request rates, latency, and errors for the Vercel/Netlify-hosted app.
+        icon: sh-grafana
+        docs: https://grafana.com/docs/
+        server: local
+        container: grafana
+
+- Tools:
+    - Gitea:
+        href: https://homegit.mavsankar.com
+        description: Git repos & CI/CD
+        details: Self-hosted Git server with built-in CI/CD. Every service has its own repo, and pushing to main triggers automatic deployment via runners.
+        icon: sh-gitea
+        docs: https://docs.gitea.com/
+        server: local
+        container: gitea
+
+    - Code Server:
+        href: https://homecode.mavsankar.com
+        description: VS Code in the browser
+        details: Full VS Code running on the server, reachable from any device. Pressing the period key in any Gitea repo clones it into the workspace and opens it here — the same flow as github.dev.
+        icon: sh-code-server
+        docs: https://coder.com/docs/code-server
+        server: local
+        container: code-server
+
+    - Dev Toolbox:
+        href: https://home.mavsankar.com/devtoolbox
+        description: Developer utilities
+        details: A collection of 25+ developer tools — JSON formatter, base64 encoder, regex tester, color picker, and more. All running locally.
+        icon: mdi-toolbox-outline
+        docs: https://github.com/mavsankar/homeserver
+        server: local
+        container: dev-tools
+
+    - Stirling PDF:
+        href: https://homepdf.mavsankar.com
+        description: PDF toolkit
+        details: Full PDF manipulation suite — merge, split, compress, OCR, convert to/from images and Word. Replaces any need for Adobe Acrobat.
+        icon: sh-stirling-pdf
+        docs: https://docs.stirlingpdf.com/
+        server: local
+        container: stirling-pdf
+
+    - Zipline:
+        href: https://homeshare.mavsankar.com
+        description: File sharing
+        details: ShareX-compatible file and image upload server. Generates short URLs for quick sharing with automatic expiry options.
+        icon: sh-zipline
+        docs: https://zipline.diced.sh/docs/
+        server: local
+        container: zipline
+
+    - ConvertX:
+        href: https://homeconvert.mavsankar.com
+        description: File converter
+        details: Self-hosted file conversion suite supporting 1000+ formats — images, documents, video, audio, and more. Handles everything locally without uploading to third-party services.
+        icon: sh-convertx
+        docs: https://github.com/C4illin/ConvertX
+        server: local
+        container: convertx
+
+    - Backrest:
+        href: https://homebackup.mavsankar.com
+        description: Backups & restore
+        details: Web UI over restic. Snapshots every Docker volume every 6 hours into an encrypted, deduplicated repo. Browse snapshot history, restore or download files, and the portable repo lets me restore on any other device.
+        icon: sh-backrest
+        docs: https://garethgeorge.github.io/backrest/
+        server: local
+        container: backrest
+
+- AI:
+    - Open WebUI:
+        href: https://homeai.mavsankar.com
+        description: AI chat with vision & OCR
+        details: ChatGPT-like interface running locally against Ollama. Supports image uploads, conversation history, and multiple models.
+        icon: sh-ollama
+        docs: https://docs.openwebui.com/
+        server: local
+        container: open-webui
+
+    - Ollama:
+        description: LLM inference engine
+        details: Runs gemma3:4b on the MX130 GPU. Used for async tasks like weekly memo digests and text summarization — not real-time chat.
+        icon: sh-ollama
+        docs: https://github.com/ollama/ollama/blob/main/docs/README.md
+        server: local
+        container: ollama
+        widget:
+          type: glances
+          url: https://homestats.mavsankar.com
+          version: 4
+          metric: gpu:nvidia0
+
+- JISST:
+    - JISST Errors:
+        href: https://homejisst-errors.mavsankar.com
+        description: Error tracking
+        details: Self-hosted, Sentry-compatible error tracking (GlitchTip) for the JISST backend and frontend, with full stack traces.
+        icon: sh-glitchtip
+        docs: https://glitchtip.com/documentation
+        server: local
+        container: glitchtip-web
+

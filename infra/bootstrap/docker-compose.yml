@@ -1,0 +1,53 @@
+name: homeserver-bootstrap
+
+services:
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    restart: always
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__server__DOMAIN=homegit.mavsankar.com
+      - GITEA__server__SSH_DOMAIN=homegit.mavsankar.com
+      - GITEA__server__ROOT_URL=https://homegit.mavsankar.com/
+      - GITEA__server__PUBLIC_URL_DETECTION=never
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__actions__ENABLED=true
+      - GITEA__service__DISABLE_REGISTRATION=true
+      - GITEA__service__SHOW_REGISTRATION_BUTTON=false
+      - GITEA__repository__DEFAULT_PRIVATE=private
+      - GITEA__repository__FORCE_PRIVATE=true
+    volumes:
+      - gitea-data:/data
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    networks:
+      - homeserver
+
+  gitea-runner:
+    image: gitea/act_runner:latest
+    container_name: gitea-runner
+    restart: always
+    environment:
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=${RUNNER_TOKEN}
+      - GITEA_RUNNER_NAME=homeserver-runner
+      - GITEA_RUNNER_LABELS=ubuntu-latest:docker://node:20-alpine
+      - CONFIG_FILE=/data/runner-config.yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitea-runner-data:/data
+    networks:
+      - homeserver
+
+volumes:
+  gitea-data:
+  gitea-runner-data:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

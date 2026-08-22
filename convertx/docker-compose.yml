@@ -1,0 +1,26 @@
+name: convertx
+
+services:
+  convertx:
+    image: ghcr.io/c4illin/convertx:latest
+    container_name: convertx
+    restart: always
+    env_file: .env
+    expose:
+      - "3000"
+    environment:
+      - TZ=Asia/Kolkata
+      - ACCOUNT_REGISTRATION=false
+      - HTTP_ALLOWED=true
+    volumes:
+      - convertx-data:/app/data
+    networks:
+      - homeserver
+
+volumes:
+  convertx-data:
+
+networks:
+  homeserver:
+    external: true
+    name: homeserver

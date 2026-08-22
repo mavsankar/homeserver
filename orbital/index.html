@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#05060d" />
+<title>ORBITAL — a gravity slingshot game</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #05060d;
+    overflow: hidden;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #wrap { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+  .hud {
+    position: fixed; top: 18px; left: 22px; right: 22px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 5;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+  }
+  .hud .title { font-weight: 700; font-size: 15px; letter-spacing: 3px; color: #8fd0ff; opacity: 0.85; }
+  .hud .stat  { font-size: 13px; letter-spacing: 1px; color: #cfe6ff; opacity: 0.7; text-align: right; }
+  .hud .stat b { color: #ffd479; font-weight: 700; }
+
+  .banner {
+    position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%);
+    text-align: center; z-index: 6; pointer-events: none;
+    transition: opacity .5s ease;
+  }
+  .banner h1 { font-size: clamp(34px, 9vw, 88px); font-weight: 800; letter-spacing: 6px;
+    background: linear-gradient(180deg,#bfe4ff,#5aa9ff 60%,#2f6bd6);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 30px rgba(60,140,255,.5)); }
+  .banner p { margin-top: 14px; font-size: 15px; letter-spacing: 2px; color: #9fc4ff; opacity: .85; }
+  .banner .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
+
+  .hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-size: 12.5px; letter-spacing: 1.5px; color: #7fa8d8; opacity: .6; z-index: 5;
+    pointer-events: none; text-align: center; line-height: 1.7;
+  }
+
+  /* ── Start screen / mode select ───────────────────────────────────────── */
+  .start {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 40%, rgba(20,30,70,0.55), rgba(3,4,10,0.92));
+    backdrop-filter: blur(3px);
+    transition: opacity .5s ease;
+  }
+  .start-inner { text-align: center; padding: 20px; }
+  .start-inner h1 {
+    font-size: clamp(46px, 12vw, 120px); font-weight: 800; letter-spacing: 10px;
+    background: linear-gradient(180deg,#bfe4ff,#5aa9ff 60%,#2f6bd6);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 40px rgba(60,140,255,.55));
+  }
+  .start-inner .tag { margin-top: 8px; font-size: 14px; letter-spacing: 5px; color: #9fc4ff; opacity: .8; }
+  .modes { margin-top: 42px; display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; }
+  .mode-btn {
+    pointer-events: auto; cursor: pointer;
+    width: 240px; padding: 22px 20px; border-radius: 16px;
+    background: linear-gradient(180deg, rgba(40,70,140,0.35), rgba(20,35,80,0.35));
+    border: 1px solid rgba(120,180,255,0.35);
+    color: #eaf3ff; display: flex; flex-direction: column; gap: 8px; align-items: center;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    font-family: inherit;
+  }
+  .mode-btn:hover:not(.disabled) {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 40px rgba(60,140,255,.35);
+    border-color: rgba(160,210,255,0.8);
+  }
+  .mode-btn .m-title { font-weight: 700; letter-spacing: 3px; font-size: 17px; color: #bfe0ff; }
+  .mode-btn .m-sub { font-size: 12px; letter-spacing: 1px; opacity: .7; }
+  .mode-btn.disabled { opacity: .4; cursor: not-allowed; filter: grayscale(.4); }
+
+  .fs-start {
+    display: none; margin-top: 26px; pointer-events: auto; cursor: pointer;
+    background: rgba(20,35,70,0.5); border: 1px solid rgba(120,180,255,0.35);
+    color: #cfe3ff; padding: 11px 20px; border-radius: 12px; font-family: inherit;
+    letter-spacing: 2px; font-size: 13px; font-weight: 700;
+  }
+  body.touch .fs-start { display: inline-block; }
+
+  /* ── On-screen mobile controls ───────────────────────────────────── */
+  .mctrl {
+    position: fixed; z-index: 8; bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: none; gap: 10px; pointer-events: none;
+  }
+  .mctrl button {
+    pointer-events: auto; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(20,35,70,0.55); border: 1px solid rgba(120,180,255,0.35);
+    color: #dbeaff; font-size: 20px; font-family: inherit; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    transition: transform .12s ease, background .12s ease;
+  }
+  .mctrl button:active { transform: scale(0.88); background: rgba(60,110,200,0.75); }
+  body.touch .mctrl { display: flex; }
+
+  /* ── Rotate-to-landscape prompt ──────────────────────────────── */
+  #rotate {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    align-items: center; justify-content: center; flex-direction: column; text-align: center;
+    background: radial-gradient(circle at 50% 50%, rgba(15,22,50,0.97), rgba(3,4,10,0.99));
+    color: #cfe3ff; padding: 30px;
+  }
+  #rotate .ico { font-size: 64px; animation: rotatehint 2.2s ease-in-out infinite; }
+  #rotate h2 { margin-top: 20px; font-size: 20px; letter-spacing: 3px; color: #bfe0ff; }
+  #rotate p { margin-top: 10px; font-size: 13px; letter-spacing: 1px; opacity: .7; max-width: 320px; }
+  @keyframes rotatehint { 0%,100%{ transform: rotate(-12deg); } 50%{ transform: rotate(78deg); } }
+
+  /* Show controls / rotate prompt on touch devices; hide the keyboard hint. */
+  @media (pointer: coarse) {
+    .mctrl { display: flex; }
+    .fs-start { display: inline-block; }
+    .hint { display: none; }
+    .hud { top: 10px; left: 12px; right: 12px; }
+    .hud .title { font-size: 12px; letter-spacing: 2px; }
+    .hud .stat  { font-size: 11px; }
+  }
+  @media (orientation: portrait) and (pointer: coarse) {
+    #rotate { display: flex; }
+  }
+  @supports (padding: max(0px)) {
+    .mctrl { bottom: calc(14px + env(safe-area-inset-bottom)); }
+    .hud { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  }
+
+  .hidden { opacity: 0 !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+</div>
+
+<div class="hud">
+  <div class="title">◦ ORBITAL</div>
+  <div class="stat">
+    LEVEL <b id="lvl">1</b> &nbsp;·&nbsp; SHOTS <b id="shots">0</b><br/>
+    SCORE <b id="score">0</b> &nbsp;·&nbsp; BEST <b id="best">—</b>
+  </div>
+</div>
+
+<div class="banner hidden" id="banner">
+  <h1>ORBITAL</h1>
+  <p class="pulse">DRAG FROM THE PROBE &nbsp;·&nbsp; RELEASE TO LAUNCH</p>
+</div>
+
+<div class="start" id="startScreen">
+  <div class="start-inner">
+    <h1>ORBITAL</h1>
+    <p class="tag">A GRAVITY SLINGSHOT GAME</p>
+    <div class="modes">
+      <button class="mode-btn" id="modeSingle">
+        <span class="m-title">SINGLE PLAYER</span>
+        <span class="m-sub">Slingshot solo through the cosmos</span>
+      </button>
+      <button class="mode-btn disabled" id="modeMulti" disabled>
+        <span class="m-title">MULTIPLAYER</span>
+        <span class="m-sub">Coming soon</span>
+      </button>
+    </div>
+    <button class="fs-start" id="fsStart">⛶ FULLSCREEN</button>
+  </div>
+</div>
+
+<div class="hint">
+  Slingshot your probe into the golden goal. Planets bend your path — use their gravity.<br/>
+  <b>Wormholes</b> teleport you · dodge the <b>black hole</b> · a faint <b>ghost</b> shows your last shot<br/>
+  <b>Drag</b> aim &amp; power &nbsp;·&nbsp; <b>R</b> reset &nbsp;·&nbsp; <b>N</b> next &nbsp;·&nbsp; <b>A</b> AI pilot &nbsp;·&nbsp; <b>L</b> complex path &nbsp;·&nbsp; <b>M</b> mute
+</div>
+
+<div class="mctrl" id="mctrl">
+  <button id="mFs" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+  <button id="mReset" title="Reset shot" aria-label="Reset shot">↺</button>
+  <button id="mNext" title="Next level" aria-label="Next level">⏭</button>
+  <button id="mAI" title="AI pilot" aria-label="AI pilot">🤖</button>
+  <button id="mComplex" title="Complex path" aria-label="Complex path">✷</button>
+  <button id="mMute" title="Mute" aria-label="Mute">🔊</button>
+</div>
+
+<div id="rotate">
+  <div class="ico">📱</div>
+  <h2>ROTATE TO LANDSCAPE</h2>
+  <p>Turn your device sideways for the best gravity-slingshot view.</p>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ─── Canvas & context ──────────────────────────────────────────────────────
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ─── Small helpers ─────────────────────────────────────────────────────────
+  const rand  = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const TAU = Math.PI * 2;
+
+  // ─── Procedural sound engine (Web Audio, zero assets) ──────────────────────
+  // All SFX are synthesized live — no audio files. AudioContext is created lazily
+  // and resumed on the first user gesture (browser autoplay policy).
+  const Sound = (() => {
+    let ac = null, master = null, muted = false;
+    function ensure() {
+      if (ac) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ac = new AC();
+      master = ac.createGain();
+      master.gain.value = 0.5;
+      master.connect(ac.destination);
+    }
+    function resume() { if (ac && ac.state === 'suspended') ac.resume(); }
+
+    // Basic oscillator "blip" with an ADSR-ish envelope.
+    function tone({ freq = 440, type = 'sine', dur = 0.2, gain = 0.3, glide = 0, delay = 0 }) {
+      if (!ac || muted) return;
+      const t0 = ac.currentTime + delay;
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      if (glide) osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq + glide), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g); g.connect(master);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+    // Filtered noise burst (explosions / whooshes).
+    function noise({ dur = 0.3, gain = 0.3, freq = 800, q = 1, type = 'lowpass', sweep = 0 }) {
+      if (!ac || muted) return;
+      const t0 = ac.currentTime;
+      const n = Math.floor(ac.sampleRate * dur);
+      const buf = ac.createBuffer(1, n, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const filt = ac.createBiquadFilter(); filt.type = type; filt.frequency.value = freq; filt.Q.value = q;
+      if (sweep) filt.frequency.exponentialRampToValueAtTime(Math.max(40, freq + sweep), t0 + dur);
+      const g = ac.createGain(); g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(filt); filt.connect(g); g.connect(master);
+      src.start(t0); src.stop(t0 + dur);
+    }
+
+    // Ambient generative music — a slow pentatonic arpeggio over a soft bass drone.
+    let musicOn = false, musicTimer = null, mStep = 0;
+    const mScale = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00];
+    function mVoice(freq, type, dur, gain, filtHz) {
+      if (!ac || muted) return;
+      const t0 = ac.currentTime;
+      const osc = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.value = filtHz || 1400;
+      osc.type = type; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.35);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(f); f.connect(g); g.connect(master);
+      osc.start(t0); osc.stop(t0 + dur + 0.05);
+    }
+    function mTick() {
+      if (!musicOn) return;
+      const root = mScale[mStep % mScale.length];
+      mVoice(root, 'triangle', 2.4, 0.06, 1300);
+      if (mStep % 2 === 0) mVoice(root * 2, 'sine', 1.6, 0.035, 2200);
+      if (mStep % 4 === 0) mVoice(root / 2, 'sawtooth', 3.2, 0.05, 500); // bass drone
+      mStep++;
+      musicTimer = setTimeout(mTick, 820);
+    }
+
+    return {
+      unlock() { ensure(); resume(); },
+      toggle() { muted = !muted; return muted; },
+      startMusic() { ensure(); resume(); if (!musicOn) { musicOn = true; mStep = 0; mTick(); } },
+      stopMusic()  { musicOn = false; if (musicTimer) clearTimeout(musicTimer); },
+      select()     { tone({ freq: 520, type: 'triangle', dur: 0.18, gain: 0.25, glide: 240 });
+                     tone({ freq: 780, type: 'sine', dur: 0.16, gain: 0.15, glide: 200, delay: 0.06 }); },
+      launch() { noise({ dur: 0.35, gain: 0.35, freq: 1800, sweep: -1500, type: 'lowpass' });
+                 tone({ freq: 160, type: 'sawtooth', dur: 0.3, gain: 0.18, glide: 260 }); },
+      crash()  { noise({ dur: 0.5, gain: 0.5, freq: 500, sweep: -420, type: 'lowpass', q: 2 });
+                 tone({ freq: 90, type: 'square', dur: 0.4, gain: 0.25, glide: -60 }); },
+      warp()   { tone({ freq: 300, type: 'sine', dur: 0.28, gain: 0.3, glide: 900 });
+                 tone({ freq: 600, type: 'triangle', dur: 0.28, gain: 0.2, glide: 1400, delay: 0.02 }); },
+      win()    { const notes = [523.25, 659.25, 783.99, 1046.5];
+                 notes.forEach((f, i) => tone({ freq: f, type: 'triangle', dur: 0.5, gain: 0.28, delay: i * 0.09 })); },
+      star()   { tone({ freq: 1200, type: 'sine', dur: 0.18, gain: 0.25, glide: 400 }); },
+    };
+  })();
+
+  // ─── HUD refs ──────────────────────────────────────────────────────────────
+  const el = {
+    lvl:   document.getElementById('lvl'),
+    shots: document.getElementById('shots'),
+    score: document.getElementById('score'),
+    best:  document.getElementById('best'),
+    banner:document.getElementById('banner'),
+  };
+
+  // ─── Starfield (parallax) ──────────────────────────────────────────────────
+  const stars = [];
+  function buildStars() {
+    stars.length = 0;
+    const n = Math.round((W * H) / 6000);
+    for (let i = 0; i < n; i++) {
+      stars.push({
+        x: Math.random() * W, y: Math.random() * H,
+        z: rand(0.2, 1), r: rand(0.4, 1.6),
+        tw: rand(0, TAU), tws: rand(0.6, 2.2),
+      });
+    }
+  }
+  buildStars();
+  window.addEventListener('resize', buildStars);
+
+  // ─── World state ───────────────────────────────────────────────────────────
+  const G = 2600;              // gravity constant (tuned for feel)
+  const state = {
+    level: 1, shots: 0, best: null, score: 0,
+    started: false, mode: null, solving: false,
+    ghost: { path: [], t: 0, active: false },
+    planets: [], goal: null, start: null,
+    probe: null,              // {x,y,vx,vy,alive}
+    launched: false,
+    trail: [],                // committed probe trail
+    particles: [],            // fx particles
+    shake: 0, shakeX: 0, shakeY: 0,
+    win: false, winT: 0,
+    wormholes: [],            // pairs: [{x,y,r,hue,partner}, ...]
+    blackhole: null,          // {x,y,r} — devours the probe, huge pull
+    warpCooldown: 0,          // frames until probe can warp again
+    stars3: 0,                // star rating earned this level
+  };
+
+  // Camera shake impulse
+  function shake(amount) { state.shake = Math.min(state.shake + amount, 26); }
+
+  // ─── Level generation ──────────────────────────────────────────────────────
+  function genLevel(n) {
+    state.planets = [];
+    state.particles = [];
+    state.trail = [];
+    state.launched = false;
+    state.win = false;
+    state.probe = null;
+    state.wormholes = [];
+    state.blackhole = null;
+    state.warpCooldown = 0;
+    state.stars3 = 0;
+    state.solving = false;
+    state.ghost = { path: [], t: 0, active: false };
+
+    const margin = 90;
+    // Start on the left, goal on the right, so gravity slalom happens in between.
+    state.start = { x: rand(margin, W * 0.22), y: rand(margin, H - margin) };
+    state.goal  = {
+      x: rand(W * 0.78, W - margin), y: rand(margin, H - margin),
+      r: clamp(34 - n * 1.2, 18, 34), t: 0,
+    };
+    resetProbe();
+
+    // Planet count scales with level.
+    const count = clamp(2 + Math.floor(n * 0.7), 2, 8);
+    let guard = 0;
+    while (state.planets.length < count && guard++ < 400) {
+      const r = rand(20, 46);
+      const p = {
+        x: rand(W * 0.28, W * 0.74),
+        y: rand(margin, H - margin),
+        r, mass: r * r * 0.9,
+        hue: rand(0, 360),
+        ring: Math.random() < 0.4,
+        ringA: rand(0, TAU), ringSpin: rand(-0.4, 0.4),
+        spin: rand(-0.5, 0.5), rot: 0,
+      };
+      // Keep clear of start, goal, and other planets.
+      if (dist(p, state.start) < r + 120) continue;
+      if (dist(p, state.goal)  < r + state.goal.r + 60) continue;
+      if (state.planets.some(q => dist(p, q) < p.r + q.r + 50)) continue;
+      state.planets.push(p);
+    }
+
+    // A couple of moving planets on higher levels for extra challenge.
+    if (n >= 3) {
+      state.planets.forEach((p, i) => {
+        if (i % 2 === 0 && Math.random() < 0.5) {
+          p.orbitCx = p.x; p.orbitCy = p.y;
+          p.orbitR = rand(30, 70); p.orbitA = rand(0, TAU);
+          p.orbitS = rand(0.3, 0.8) * (Math.random() < 0.5 ? 1 : -1);
+        }
+      });
+    }
+
+    // Wormhole pair — teleports the probe from one mouth to the other, preserving
+    // speed but redirecting it away from the exit. Appears from level 2 onward.
+    if (n >= 2 && Math.random() < 0.85) {
+      const hue = rand(180, 320);
+      const a = spawnClear(18, 200);
+      const b = spawnClear(18, 200, a);
+      if (a && b) {
+        a.hue = b.hue = hue; a.partner = b; b.partner = a;
+        a.spin = rand(1, 2); b.spin = -a.spin; a.rot = 0; b.rot = 0;
+        state.wormholes.push(a, b);
+      }
+    }
+
+    // Black hole hazard — a devouring void with an accretion disk. Level 4+.
+    if (n >= 4 && Math.random() < 0.7) {
+      const bh = spawnClear(26, 260);
+      if (bh) { bh.mass = bh.r * bh.r * 3.2; bh.rot = 0; state.blackhole = bh; }
+    }
+
+    updateHUD();
+  }
+
+  // Finds a spot clear of start/goal/planets/wormholes/blackhole. `avoid` is an
+  // optional extra point to keep distance from (used to spread wormhole mouths).
+  function spawnClear(r, gap, avoid) {
+    for (let i = 0; i < 200; i++) {
+      const p = { x: rand(W * 0.24, W * 0.78), y: rand(90, H - 90), r };
+      if (dist(p, state.start) < r + 130) continue;
+      if (dist(p, state.goal)  < r + state.goal.r + 80) continue;
+      if (state.planets.some(q => dist(p, q) < q.r + r + gap)) continue;
+      if (state.wormholes.some(q => dist(p, q) < q.r + r + gap)) continue;
+      if (state.blackhole && dist(p, state.blackhole) < state.blackhole.r + r + gap) continue;
+      if (avoid && dist(p, avoid) < 260) continue;   // spread the pair apart
+      return p;
+    }
+    return null;
+  }
+
+  function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return Math.hypot(dx, dy); }
+
+  function resetProbe() {
+    // Preserve the just-finished attempt as a ghost to race against next shot.
+    if (state.trail && state.trail.length > 4) {
+      state.ghost = { path: state.trail.slice(), t: 0, active: true };
+    }
+    state.solving = false;
+    state.probe = { x: state.start.x, y: state.start.y, vx: 0, vy: 0, alive: true, r: 6 };
+    state.launched = false;
+    state.trail = [];
+    state.particles = state.particles.filter(p => p.keep);
+  }
+
+  // ─── Input: drag-to-launch ─────────────────────────────────────────────────
+  const aim = { active: false, sx: 0, sy: 0, cx: 0, cy: 0 };
+  const MAX_PULL = 170;
+
+  function pointerPos(e) {
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
+  }
+
+  function onDown(e) {
+    Sound.unlock();                              // first gesture unlocks audio
+    if (!state.started) return;
+    if (state.launched || state.win) return;
+    const p = pointerPos(e);
+    // Only start aiming if the press begins near the probe.
+    if (dist(p, state.probe) < 60 || dist(p, state.start) < 60) {
+      aim.active = true; aim.sx = state.probe.x; aim.sy = state.probe.y;
+      aim.cx = p.x; aim.cy = p.y;
+      e.preventDefault();
+    }
+  }
+  function onMove(e) {
+    if (!aim.active) return;
+    const p = pointerPos(e);
+    aim.cx = p.x; aim.cy = p.y;
+    e.preventDefault();
+  }
+  function onUp(e) {
+    if (!aim.active) return;
+    aim.active = false;
+    let dx = aim.sx - aim.cx, dy = aim.sy - aim.cy;
+    const len = Math.hypot(dx, dy);
+    if (len < 8) return;                       // too small — ignore
+    const pull = Math.min(len, MAX_PULL) / MAX_PULL;
+    const ux = dx / len, uy = dy / len;
+    const speed = 60 + pull * 340;
+    state.probe.vx = ux * speed;
+    state.probe.vy = uy * speed;
+    state.launched = true;
+    state.shots++;
+    dismissBanner();
+    Sound.launch();
+    // launch burst
+    for (let i = 0; i < 24; i++) burst(state.probe.x, state.probe.y, 200, '190');
+    updateHUD();
+    if (state.shots === 4) { showBanner('STUCK?', 'PRESS  A  TO LET THE AI PILOT FINISH'); setTimeout(dismissBanner, 1900); }
+    e.preventDefault();
+  }
+
+  canvas.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  canvas.addEventListener('touchstart', onDown, { passive: false });
+  canvas.addEventListener('touchmove', onMove, { passive: false });
+  canvas.addEventListener('touchend', onUp, { passive: false });
+
+  window.addEventListener('keydown', (e) => {
+    if (!state.started) return;
+    const k = e.key.toLowerCase();
+    if (k === 'r') resetProbe();
+    if (k === 'n') nextLevel();
+    if (k === 'a') autoSolve(false);
+    if (k === 'l') autoSolve(true);
+    if (k === 'f') toggleFullscreen();
+    if (k === 'm') toggleMute();
+  });
+
+  // Shared actions used by both the keyboard and the on-screen mobile buttons.
+  let mBtnMute = null;
+  function nextLevel() { state.level++; genLevel(state.level); }
+  function toggleMute() {
+    const m = Sound.toggle();
+    if (mBtnMute) mBtnMute.textContent = m ? '🔇' : '🔊';
+    showBanner(m ? 'MUTED' : 'SOUND ON', 'PRESS M TO TOGGLE');
+    setTimeout(dismissBanner, 900);
+  }
+  function lockLandscape() {
+    try {
+      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+    } catch (e) { /* not supported — ignore */ }
+  }
+  function toggleFullscreen() {
+    const d = document, root = d.documentElement;
+    const fsEl = d.fullscreenElement || d.webkitFullscreenElement;
+    if (!fsEl) {
+      const req = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (req) { const p = req.call(root); if (p && p.then) p.then(lockLandscape).catch(() => {}); else lockLandscape(); }
+    } else {
+      const exit = d.exitFullscreen || d.webkitExitFullscreen;
+      if (exit) exit.call(d);
+    }
+  }
+
+  function dismissBanner() { el.banner.classList.add('hidden'); }
+  function showBanner(title, sub) {
+    el.banner.querySelector('h1').textContent = title;
+    el.banner.querySelector('p').textContent = sub;
+    el.banner.classList.remove('hidden');
+  }
+
+  // ─── Particles ─────────────────────────────────────────────────────────────
+  function burst(x, y, spd, hue, keep = false) {
+    const a = rand(0, TAU), s = rand(spd * 0.2, spd);
+    state.particles.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: 1, decay: rand(0.6, 1.6), hue, keep,
+      r: rand(1, 3),
+    });
+  }
+
+  // ─── Physics update ────────────────────────────────────────────────────────
+  function stepProbe(dt) {
+    const pr = state.probe;
+    if (!pr || !pr.alive || !state.launched) return;
+
+    // Sub-step for stable gravity near planets (continuous-ish collision).
+    const STEPS = 6;
+    const h = dt / STEPS;
+    for (let s = 0; s < STEPS; s++) {
+      let ax = 0, ay = 0;
+      for (const pl of state.planets) {
+        const dx = pl.x - pr.x, dy = pl.y - pr.y;
+        const d2 = dx * dx + dy * dy;
+        const d = Math.sqrt(d2) || 1;
+        // collision with a planet = destroyed
+        if (d < pl.r + pr.r) { destroyProbe(pl); return; }
+        const f = (G * pl.mass) / (d2 + 400);   // softened
+        ax += (dx / d) * f; ay += (dy / d) * f;
+      }
+      // Black hole: very strong pull, and the event horizon devours the probe.
+      const bh = state.blackhole;
+      if (bh) {
+        const dx = bh.x - pr.x, dy = bh.y - pr.y;
+        const d2 = dx * dx + dy * dy, d = Math.sqrt(d2) || 1;
+        if (d < bh.r + pr.r) { destroyProbe(bh, true); return; }
+        const f = (G * bh.mass) / (d2 + 300);
+        ax += (dx / d) * f; ay += (dy / d) * f;
+      }
+      pr.vx += ax * h; pr.vy += ay * h;
+      pr.x  += pr.vx * h; pr.y += pr.vy * h;
+
+      // Wormhole entry → teleport to partner mouth, keep speed, exit outward.
+      if (state.warpCooldown <= 0) {
+        for (const w of state.wormholes) {
+          if (dist(pr, w) < w.r) {
+            const spd = Math.hypot(pr.vx, pr.vy);
+            const p = w.partner;
+            // Launch from the exit mouth pointing away from its center-ish,
+            // biased toward the probe's incoming heading for predictability.
+            const inAng = Math.atan2(pr.vy, pr.vx);
+            pr.x = p.x + Math.cos(inAng) * (p.r + pr.r + 4);
+            pr.y = p.y + Math.sin(inAng) * (p.r + pr.r + 4);
+            pr.vx = Math.cos(inAng) * spd; pr.vy = Math.sin(inAng) * spd;
+            state.warpCooldown = 12;
+            Sound.warp();
+            for (let i = 0; i < 26; i++) burst(w.x, w.y, 220, String(Math.round(w.hue)));
+            for (let i = 0; i < 26; i++) burst(p.x, p.y, 220, String(Math.round(p.hue)));
+            break;
+          }
+        }
+      }
+
+      // Goal check
+      if (dist(pr, state.goal) < state.goal.r + pr.r) { winLevel(); return; }
+    }
+    if (state.warpCooldown > 0) state.warpCooldown--;
+
+    // Trail sampling
+    state.trail.push({ x: pr.x, y: pr.y });
+    if (state.trail.length > 240) state.trail.shift();
+
+    // Faint ion trail particles
+    if (Math.random() < 0.8) {
+      state.particles.push({
+        x: pr.x, y: pr.y, vx: -pr.vx * 0.02, vy: -pr.vy * 0.02,
+        life: 1, decay: rand(1.4, 2.4), hue: '195', r: rand(1, 2.4),
+      });
+    }
+
+    // Out of bounds → lost shot
+    const pad = 240;
+    if (pr.x < -pad || pr.x > W + pad || pr.y < -pad || pr.y > H + pad) {
+      resetProbe();
+    }
+  }
+
+  function destroyProbe(pl, isBlackHole) {
+    const pr = state.probe;
+    pr.alive = false;
+    shake(isBlackHole ? 20 : 14);
+    Sound.crash();
+    const hue = isBlackHole ? '270' : (pl ? String(Math.round(pl.hue)) : '10');
+    for (let i = 0; i < 40; i++) burst(pr.x, pr.y, 280, hue);
+    setTimeout(resetProbe, 550);
+  }
+
+  function winLevel() {
+    if (state.win) return;
+    state.win = true;
+    state.winT = 0;
+    shake(20);
+    Sound.win();
+    state.stars3 = state.shots <= 1 ? 3 : state.shots <= 3 ? 2 : 1;
+    // Score: level bonus + star bonus − shot penalty. AI-assisted solves still
+    // count as a win but earn a reduced, star-less score.
+    let gained = (500 + state.level * 60) + state.stars3 * 400 - Math.max(0, state.shots - 1) * 120;
+    if (state.solving) { state.stars3 = 0; gained = Math.floor(Math.max(120, gained) * 0.25); }
+    gained = Math.max(120, gained);
+    state.score += gained;
+    if (state.best === null || gained > state.best) state.best = gained;
+    for (let i = 0; i < Math.max(1, state.stars3); i++) setTimeout(() => Sound.star(), 500 + i * 160);
+    const g = state.goal;
+    for (let i = 0; i < 90; i++) burst(g.x, g.y, 340, '45');
+    updateHUD();
+    const starStr = '★'.repeat(state.stars3) + '☆'.repeat(3 - state.stars3);
+    const label = state.solving ? 'AI SOLVED' : 'SOLVED';
+    showBanner(label, starStr + '   ·   +' + gained + ' PTS');
+    setTimeout(() => {
+      state.level++;
+      state.shots = 0;
+      genLevel(state.level);
+      showBanner('LEVEL ' + state.level, 'DRAG FROM THE PROBE · RELEASE TO LAUNCH');
+      setTimeout(dismissBanner, 1400);
+    }, 1100);
+  }
+
+  function updateHUD() {
+    el.lvl.textContent = state.level;
+    el.shots.textContent = state.shots;
+    el.score.textContent = state.score;
+    el.best.textContent = state.best === null ? '—' : state.best;
+  }
+
+  // ─── Trajectory prediction (dotted preview while aiming) ────────────────────
+  function predict(vx, vy) {
+    let x = state.start.x, y = state.start.y;
+    const pts = [];
+    const h = 1 / 60;
+    for (let i = 0; i < 90; i++) {
+      let ax = 0, ay = 0;
+      for (const pl of state.planets) {
+        const dx = pl.x - x, dy = pl.y - y;
+        const d2 = dx * dx + dy * dy, d = Math.sqrt(d2) || 1;
+        if (d < pl.r + 6) return pts;                // predicted crash
+        const f = (G * pl.mass) / (d2 + 400);
+        ax += (dx / d) * f; ay += (dy / d) * f;
+      }
+      const bh = state.blackhole;
+      if (bh) {
+        const dx = bh.x - x, dy = bh.y - y, d2 = dx * dx + dy * dy, d = Math.sqrt(d2) || 1;
+        if (d < bh.r + 6) return pts;                // sucked in
+        const f = (G * bh.mass) / (d2 + 300);
+        ax += (dx / d) * f; ay += (dy / d) * f;
+      }
+      vx += ax * h; vy += ay * h;
+      x += vx * h; y += vy * h;
+      if (i % 2 === 0) pts.push({ x, y });
+      if (x < -50 || x > W + 50 || y < -50 || y > H + 50) break;
+      if (dist({ x, y }, state.goal) < state.goal.r) { pts.push({ x, y }); break; }
+    }
+    return pts;
+  }
+  // ─── AI auto-solver ──────────────────────────────────────────────────────────────
+  // Searches launch angle & power for a ballistic path that reaches the goal,
+  // mirroring the real integrator (planets, black hole, wormholes).
+  // Mirrors the REAL integrator exactly (same substep size, moving planets,
+  // wormholes, black hole) so a path that avoids planets in sim also avoids them
+  // in flight. A small safety margin rejects paths that skim too close.
+  const AI_SAFE = 5;                    // extra clearance (px) beyond the surface
+  function simulateHit(vx, vy) {
+    let x = state.start.x, y = state.start.y;
+    const frames = 320, SUB = 6, h = (1 / 60) / SUB;
+    const bh = state.blackhole;
+    let warpCd = 0, T = 0, len = 0, turn = 0, pang = null;
+    for (let i = 0; i < frames; i++) {
+      for (let s = 0; s < SUB; s++) {
+        let ax = 0, ay = 0;
+        for (const pl of state.planets) {
+          // Predict moving-planet position at this instant so the arc stays valid.
+          let px = pl.x, py = pl.y;
+          if (pl.orbitR != null) {
+            px = pl.orbitCx + Math.cos(pl.orbitA + pl.orbitS * T) * pl.orbitR;
+            py = pl.orbitCy + Math.sin(pl.orbitA + pl.orbitS * T) * pl.orbitR;
+          }
+          const dx = px - x, dy = py - y, d2 = dx * dx + dy * dy, d = Math.sqrt(d2) || 1;
+          if (d < pl.r + 6 + AI_SAFE) return false;   // would crash
+          const f = (G * pl.mass) / (d2 + 400);
+          ax += (dx / d) * f; ay += (dy / d) * f;
+        }
+        if (bh) {
+          const dx = bh.x - x, dy = bh.y - y, d2 = dx * dx + dy * dy, d = Math.sqrt(d2) || 1;
+          if (d < bh.r + 6 + AI_SAFE) return false;   // sucked in
+          const f = (G * bh.mass) / (d2 + 300);
+          ax += (dx / d) * f; ay += (dy / d) * f;
+        }
+        vx += ax * h; vy += ay * h; x += vx * h; y += vy * h; T += h;
+        len += Math.hypot(vx, vy) * h;   // accumulate travelled arc length
+        // accumulate total heading change — a measure of how twisty the path is
+        const ang2 = Math.atan2(vy, vx);
+        if (pang !== null) {
+          let da = ang2 - pang;
+          while (da > Math.PI) da -= TAU;
+          while (da < -Math.PI) da += TAU;
+          turn += Math.abs(da);
+        }
+        pang = ang2;
+        if (warpCd <= 0) {
+          for (const w of state.wormholes) {
+            if (Math.hypot(w.x - x, w.y - y) < w.r) {
+              const spd = Math.hypot(vx, vy), p = w.partner, inAng = Math.atan2(vy, vx);
+              x = p.x + Math.cos(inAng) * (p.r + 6 + 4);
+              y = p.y + Math.sin(inAng) * (p.r + 6 + 4);
+              vx = Math.cos(inAng) * spd; vy = Math.sin(inAng) * spd;
+              warpCd = 12; break;
+            }
+          }
+        }
+        if (Math.hypot(state.goal.x - x, state.goal.y - y) < state.goal.r + 6) return { len, turn };
+      }
+      if (warpCd > 0) warpCd--;
+      if (x < -60 || x > W + 60 || y < -60 || y > H + 60) return false;
+    }
+    return false;
+  }
+
+  function findSolution() {
+    const base = Math.atan2(state.goal.y - state.start.y, state.goal.x - state.start.x);
+    const angleSteps = 160;  // scan the full circle, biased around the direct heading
+    for (let ai = 0; ai < angleSteps; ai++) {
+      const off = (ai % 2 ? 1 : -1) * Math.ceil(ai / 2) * (TAU / angleSteps);
+      const ang = base + off;
+      for (let pull = 0.30; pull <= 1.001; pull += 0.035) {
+        const speed = 60 + pull * 340;
+        const vx = Math.cos(ang) * speed, vy = Math.sin(ang) * speed;
+        if (simulateHit(vx, vy)) return { vx, vy };
+      }
+    }
+    return null;
+  }
+
+  // Scans every launch and keeps the winning shot with the most complex
+  // (twistiest) path — the one whose heading changes the most overall.
+  function findComplexSolution() {
+    const base = Math.atan2(state.goal.y - state.start.y, state.goal.x - state.start.x);
+    const angleSteps = 160;
+    let best = null, bestTurn = -1;
+    for (let ai = 0; ai < angleSteps; ai++) {
+      const off = (ai % 2 ? 1 : -1) * Math.ceil(ai / 2) * (TAU / angleSteps);
+      const ang = base + off;
+      for (let pull = 0.30; pull <= 1.001; pull += 0.035) {
+        const speed = 60 + pull * 340;
+        const vx = Math.cos(ang) * speed, vy = Math.sin(ang) * speed;
+        const res = simulateHit(vx, vy);
+        if (res && res.turn > bestTurn) { bestTurn = res.turn; best = { vx, vy }; }
+      }
+    }
+    return best;
+  }
+
+  function autoSolve(complex) {
+    if (!state.started || state.launched || state.win) return false;
+    const sol = complex ? findComplexSolution() : findSolution();
+    if (!sol) {
+      showBanner('NO CLEAR PATH', 'NUDGE WITH A DRAG, THEN TRY  A  AGAIN');
+      setTimeout(dismissBanner, 1600);
+      return false;
+    }
+    state.probe.vx = sol.vx; state.probe.vy = sol.vy;
+    state.launched = true;
+    state.solving = true;
+    state.shots++;
+    dismissBanner();
+    Sound.launch();
+    for (let i = 0; i < 24; i++) burst(state.probe.x, state.probe.y, 200, '285');
+    showBanner('AI PILOT', complex ? 'PLOTTING THE MOST COMPLEX ORBIT…' : 'COMPUTING ORBIT…');
+    setTimeout(dismissBanner, 900);
+    updateHUD();
+    return true;
+  }
+  // ─── Update loop ───────────────────────────────────────────────────────────
+  function update(dt) {
+    // Move orbiting planets
+    for (const pl of state.planets) {
+      pl.rot += pl.spin * dt;
+      if (pl.ring) pl.ringA += pl.ringSpin * dt;
+      if (pl.orbitR != null) {
+        pl.orbitA += pl.orbitS * dt;
+        pl.x = pl.orbitCx + Math.cos(pl.orbitA) * pl.orbitR;
+        pl.y = pl.orbitCy + Math.sin(pl.orbitA) * pl.orbitR;
+      }
+    }
+    state.goal.t += dt;
+
+    // Advance the ghost replay of the previous attempt.
+    const _gh = state.ghost;
+    if (_gh && _gh.active && _gh.path.length > 1 && !state.launched) {
+      _gh.t += dt * 55;
+      if (_gh.t >= _gh.path.length) _gh.t = 0;
+    }
+
+    // Spin wormhole mouths and swirl the black hole disk.
+    for (const w of state.wormholes) w.rot += w.spin * dt;
+    if (state.blackhole) {
+      state.blackhole.rot += dt * 2.2;
+      // Black hole slowly sucks in nearby particles for extra menace.
+      const bh = state.blackhole;
+      for (const p of state.particles) {
+        const dx = bh.x - p.x, dy = bh.y - p.y, d = Math.hypot(dx, dy) || 1;
+        if (d < bh.r * 8) { const f = 1200 / (d + 20); p.vx += (dx / d) * f * dt; p.vy += (dy / d) * f * dt; }
+      }
+    }
+
+    stepProbe(dt);
+
+    // Particles
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.98; p.vy *= 0.98;
+      p.life -= p.decay * dt;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+
+    // Camera shake decay
+    if (state.shake > 0) {
+      state.shake *= 0.9;
+      if (state.shake < 0.3) state.shake = 0;
+      state.shakeX = rand(-1, 1) * state.shake;
+      state.shakeY = rand(-1, 1) * state.shake;
+    } else { state.shakeX = state.shakeY = 0; }
+
+    // Twinkle
+    for (const s of stars) s.tw += s.tws * dt;
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+  function render(time) {
+    ctx.save();
+    ctx.translate(state.shakeX, state.shakeY);
+
+    // Background gradient
+    const bg = ctx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.4, Math.max(W, H) * 0.8);
+    bg.addColorStop(0, '#0b1024');
+    bg.addColorStop(1, '#04050c');
+    ctx.fillStyle = bg;
+    ctx.fillRect(-40, -40, W + 80, H + 80);
+
+    // Stars
+    for (const s of stars) {
+      const a = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin(s.tw));
+      ctx.globalAlpha = a * s.z;
+      ctx.fillStyle = '#cfe3ff';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * s.z, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Gravity-field faint rings around planets
+    for (const pl of state.planets) {
+      const rg = ctx.createRadialGradient(pl.x, pl.y, pl.r, pl.x, pl.y, pl.r * 5);
+      rg.addColorStop(0, `hsla(${pl.hue},70%,60%,0.12)`);
+      rg.addColorStop(1, 'hsla(0,0%,0%,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r * 5, 0, TAU); ctx.fill();
+    }
+
+    // Black hole — dark core, bright accretion disk, gravitational glow.
+    if (state.blackhole) drawBlackHole(state.blackhole);
+
+    // Wormholes — swirling portal mouths with a connecting shimmer.
+    for (const w of state.wormholes) drawWormhole(w);
+
+    // Committed probe trail (glowing polyline)
+    if (state.trail.length > 1) {
+      ctx.lineCap = 'round';
+      for (let i = 1; i < state.trail.length; i++) {
+        const a = i / state.trail.length;
+        ctx.strokeStyle = `hsla(195,100%,70%,${a * 0.8})`;
+        ctx.lineWidth = a * 3.4;
+        ctx.beginPath();
+        ctx.moveTo(state.trail[i - 1].x, state.trail[i - 1].y);
+        ctx.lineTo(state.trail[i].x, state.trail[i].y);
+        ctx.stroke();
+      }
+    }
+
+    // Particles (additive glow)
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of state.particles) {
+      ctx.globalAlpha = clamp(p.life, 0, 1);
+      ctx.fillStyle = `hsl(${p.hue},100%,65%)`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Planets
+    for (const pl of state.planets) {
+      // ring behind
+      if (pl.ring) drawRing(pl, true);
+      const grad = ctx.createRadialGradient(
+        pl.x - pl.r * 0.4, pl.y - pl.r * 0.4, pl.r * 0.15,
+        pl.x, pl.y, pl.r);
+      grad.addColorStop(0, `hsl(${pl.hue},75%,72%)`);
+      grad.addColorStop(0.6, `hsl(${pl.hue},70%,48%)`);
+      grad.addColorStop(1, `hsl(${pl.hue},80%,22%)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r, 0, TAU); ctx.fill();
+
+      // subtle surface stripe
+      ctx.save();
+      ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r, 0, TAU); ctx.clip();
+      ctx.globalAlpha = 0.15;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = pl.r * 0.28;
+      ctx.beginPath();
+      ctx.moveTo(pl.x - pl.r, pl.y + Math.sin(pl.rot) * pl.r * 0.3);
+      ctx.lineTo(pl.x + pl.r, pl.y + Math.sin(pl.rot + 1) * pl.r * 0.3);
+      ctx.stroke();
+      ctx.restore();
+
+      // ring front
+      if (pl.ring) drawRing(pl, false);
+    }
+
+    // Goal (pulsing golden vortex)
+    const g = state.goal;
+    const pulse = 0.5 + 0.5 * Math.sin(g.t * 3);
+    ctx.globalCompositeOperation = 'lighter';
+    const gg = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r * (2.4 + pulse));
+    gg.addColorStop(0, 'rgba(255,220,120,0.95)');
+    gg.addColorStop(0.4, 'rgba(255,170,40,0.5)');
+    gg.addColorStop(1, 'rgba(255,150,0,0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath(); ctx.arc(g.x, g.y, g.r * (2.4 + pulse), 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    // swirling arms
+    ctx.save();
+    ctx.translate(g.x, g.y); ctx.rotate(g.t * 1.5);
+    ctx.strokeStyle = 'rgba(255,240,200,0.9)';
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      ctx.rotate(TAU / 3);
+      ctx.beginPath();
+      for (let a = 0; a < 3; a += 0.15) {
+        const rr = a * g.r * 0.55;
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Aim preview + slingshot band
+    if (aim.active && !state.launched && !state.win) {
+      let dx = aim.sx - aim.cx, dy = aim.sy - aim.cy;
+      const len = Math.hypot(dx, dy);
+      const pull = Math.min(len, MAX_PULL) / MAX_PULL;
+      const ux = len ? dx / len : 0, uy = len ? dy / len : 0;
+      const speed = 60 + pull * 340;
+
+      // predicted path
+      const pts = predict(ux * speed, uy * speed);
+      ctx.setLineDash([2, 9]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = `hsla(${120 - pull * 120},90%,60%,0.85)`;
+      ctx.beginPath();
+      ctx.moveTo(state.start.x, state.start.y);
+      for (const p of pts) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // endpoint dot
+      if (pts.length) {
+        const last = pts[pts.length - 1];
+        ctx.fillStyle = `hsla(${120 - pull * 120},90%,60%,0.9)`;
+        ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, TAU); ctx.fill();
+      }
+
+      // rubber band from probe to pointer
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(state.probe.x, state.probe.y);
+      ctx.lineTo(aim.cx, aim.cy);
+      ctx.stroke();
+
+      // power ring around probe
+      ctx.strokeStyle = `hsla(${120 - pull * 120},90%,60%,0.9)`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(state.probe.x, state.probe.y, 14 + pull * 10, -Math.PI / 2, -Math.PI / 2 + TAU * pull);
+      ctx.stroke();
+    }
+
+    // Ghost replay of the previous attempt (translucent, for racing yourself)
+    const gh = state.ghost;
+    if (gh && gh.active && gh.path.length > 1 && !state.launched && !state.win) {
+      ctx.strokeStyle = 'rgba(150,200,255,0.16)';
+      ctx.lineWidth = 2; ctx.setLineDash([2, 6]);
+      ctx.beginPath();
+      ctx.moveTo(gh.path[0].x, gh.path[0].y);
+      for (let i = 1; i < gh.path.length; i++) ctx.lineTo(gh.path[i].x, gh.path[i].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const gp = gh.path[Math.floor(gh.t) % gh.path.length];
+      ctx.globalCompositeOperation = 'lighter';
+      const grad = ctx.createRadialGradient(gp.x, gp.y, 0, gp.x, gp.y, 12);
+      grad.addColorStop(0, 'rgba(160,210,255,0.5)');
+      grad.addColorStop(1, 'rgba(160,210,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(gp.x, gp.y, 12, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(210,235,255,0.7)';
+      ctx.beginPath(); ctx.arc(gp.x, gp.y, 4, 0, TAU); ctx.fill();
+    }
+
+    // Probe
+    if (state.probe && state.probe.alive) {
+      const pr = state.probe;
+      ctx.globalCompositeOperation = 'lighter';
+      const pg = ctx.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, 20);
+      pg.addColorStop(0, 'rgba(180,240,255,1)');
+      pg.addColorStop(0.5, 'rgba(80,180,255,0.6)');
+      pg.addColorStop(1, 'rgba(80,180,255,0)');
+      ctx.fillStyle = pg;
+      ctx.beginPath(); ctx.arc(pr.x, pr.y, 20, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#eafcff';
+      ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r, 0, TAU); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawRing(pl, back) {
+    ctx.save();
+    ctx.translate(pl.x, pl.y);
+    ctx.rotate(pl.ringA);
+    ctx.scale(1, 0.32);
+    ctx.strokeStyle = `hsla(${pl.hue},80%,70%,${back ? 0.35 : 0.7})`;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    // draw only half the ellipse so front/back layer correctly
+    const a0 = back ? Math.PI : 0;
+    ctx.arc(0, 0, pl.r * 1.8, a0, a0 + Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawWormhole(w) {
+    ctx.save();
+    ctx.translate(w.x, w.y);
+    // outer glow
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w.r * 3);
+    g.addColorStop(0, `hsla(${w.hue},90%,65%,0.5)`);
+    g.addColorStop(1, `hsla(${w.hue},90%,50%,0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, w.r * 3, 0, TAU); ctx.fill();
+    // swirling spiral arms
+    ctx.rotate(w.rot);
+    ctx.strokeStyle = `hsla(${w.hue},95%,80%,0.9)`;
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    for (let k = 0; k < 4; k++) {
+      ctx.rotate(TAU / 4);
+      ctx.beginPath();
+      for (let a = 0; a < 3.2; a += 0.15) {
+        const rr = (a / 3.2) * w.r;
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    // dark eye
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `hsla(${w.hue},60%,10%,0.9)`;
+    ctx.beginPath(); ctx.arc(0, 0, w.r * 0.4, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBlackHole(bh) {
+    ctx.save();
+    ctx.translate(bh.x, bh.y);
+    // lensing glow
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = ctx.createRadialGradient(0, 0, bh.r, 0, 0, bh.r * 6);
+    glow.addColorStop(0, 'rgba(150,90,255,0.35)');
+    glow.addColorStop(0.5, 'rgba(90,50,200,0.12)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0, 0, bh.r * 6, 0, TAU); ctx.fill();
+    // accretion disk (spinning bright ring)
+    ctx.rotate(bh.rot);
+    ctx.scale(1, 0.4);
+    for (let i = 0; i < 3; i++) {
+      ctx.strokeStyle = `hsla(${280 - i * 30},100%,${70 - i * 10}%,${0.8 - i * 0.2})`;
+      ctx.lineWidth = 4 - i;
+      ctx.beginPath(); ctx.arc(0, 0, bh.r * (1.7 + i * 0.5), 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+    // pure-black event horizon on top
+    ctx.save();
+    ctx.translate(bh.x, bh.y);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(0, 0, bh.r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(180,140,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0, 0, bh.r, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // ─── Main loop with delta time ─────────────────────────────────────────────
+  let last = performance.now();
+  function frame(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    dt = Math.min(dt, 1 / 30);          // clamp to avoid huge jumps
+    update(dt);
+    render(now);
+    requestAnimationFrame(frame);
+  }
+
+  // ─── Boot ──────────────────────────────────────────────────────────────────
+  genLevel(1);                 // build a live world to animate behind the menu
+  requestAnimationFrame(frame);
+
+  // Start screen — pick a game mode before playing.
+  const startScreen = document.getElementById('startScreen');
+  function beginGame() {
+    if (state.started) return;
+    state.started = true;
+    state.mode = 'single';
+    state.score = 0; state.best = null; state.level = 1; state.shots = 0;
+    Sound.unlock();
+    Sound.startMusic();
+    genLevel(1);
+    startScreen.classList.add('hidden');
+    setTimeout(() => { startScreen.style.display = 'none'; }, 500);
+    showBanner('LEVEL 1', 'DRAG FROM THE PROBE · RELEASE TO LAUNCH');
+    setTimeout(dismissBanner, 1600);
+  }
+  document.getElementById('modeSingle').addEventListener('click', () => { Sound.unlock(); Sound.select(); beginGame(); });
+
+  // ─── Mobile / touch support ───────────────────────────────────────────
+  const isTouch = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
+  if (isTouch) document.body.classList.add('touch');
+  mBtnMute = document.getElementById('mMute');
+  const wire = (id, fn) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', (e) => { e.preventDefault(); Sound.unlock(); fn(); });
+  };
+  wire('mFs', toggleFullscreen);
+  wire('fsStart', toggleFullscreen);
+  wire('mReset', () => resetProbe());
+  wire('mNext', nextLevel);
+  wire('mAI', () => autoSolve(false));
+  wire('mComplex', () => autoSolve(true));
+  wire('mMute', toggleMute);
+
+  // Re-fit the level when the device flips between portrait and landscape so the
+  // start/goal/planets stay within the new bounds.
+  let lastLandscape = W >= H;
+  window.addEventListener('resize', () => {
+    const nowLandscape = W >= H;
+    if (nowLandscape !== lastLandscape) {
+      lastLandscape = nowLandscape;
+      if (state.started) genLevel(state.level);
+    }
+  });
+})();
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"36df585e1f0c4dca953b20126cb1007d","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>

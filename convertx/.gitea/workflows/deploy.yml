@@ -1,0 +1,26 @@
+name: Deploy ConvertX
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-compose
+
+      - name: Create .env
+        run: |
+          printf '%s\n' \
+            "JWT_SECRET=${{ secrets.JWT_SECRET }}" \
+            > .env
+
+      - name: Deploy
+        run: docker compose pull && docker compose down && docker compose up -d
